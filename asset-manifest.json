@@ -1,0 +1,12 @@
+{
+  "files": {
+    "main.css": "/maintenance_dashboard/static/css/main.31d6cfe0.css",
+    "main.js": "/maintenance_dashboard/static/js/main.bfc34815.js",
+    "index.html": "/maintenance_dashboard/index.html",
+    "main.bfc34815.js.map": "/maintenance_dashboard/static/js/main.bfc34815.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.31d6cfe0.css",
+    "static/js/main.bfc34815.js"
+  ]
+}
