@@ -1,4 +1,6 @@
-const HUGGING_FACE_API_KEY = process.env.REACT_APP_HUGGING_FACE_API_KEY;
+
+// Chave temporária para teste, remova após o teste!
+const HUGGING_FACE_API_KEY = "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";
 
 if (!HUGGING_FACE_API_KEY) {
   console.error("Hugging Face API Key is not set!");
