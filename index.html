@@ -174,7 +174,7 @@
     </div>
 
     <!-- Modals -->
-    <div id="helpModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-xl font-bold mb-4">Ajuda</h2><p>Este é um painel de visão geral dos KPIs de manutenção. Use os botões para navegar, atualizar e gerir os dados.</p><button class="btn-close-modal mt-4 bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="helpModal">Fechar</button></div></div>
+    <div id="helpModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-xl font-bold mb-4">Ajuda</h2><p>Este é um painel de visão geral dos KPIs de manutenção. Use os botões para navegar, atualizar e gerir os dados.</p><p class="mt-4 text-sm text-gray-600">Desenvolvido por Jonathan da Silva Oliveira, desenvolvedor do projeto Manutenção Industrial Arquivos.</p><button class="btn-close-modal mt-4 bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="helpModal">Fechar</button></div></div>
     <div id="settingsModal" class="modal-overlay hidden"><div class="modal-content"><form id="settings-form"><h2 class="text-2xl font-bold mb-4">Configurações</h2><div class="space-y-4"><h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Perfil do Utilizador</h3><div><label for="settings-user-name" class="block text-sm font-medium">Seu Nome</label><input type="text" id="settings-user-name" class="form-input mt-1" placeholder="Como quer ser chamado?"></div><h3 class="text-lg font-semibold text-gray-800 mt-6 border-b pb-2">Metas para o ano <span id="settings-year-title" class="font-bold"></span></h3><div><label for="settings-mttr-target" class="block text-sm font-medium">Meta MTTR</label><input type="number" step="0.1" id="settings-mttr-target" class="form-input mt-1" required></div><div><label for="settings-mtbf-target" class="block text-sm font-medium">Meta MTBF</label><input type="number" step="0.1" id="settings-mtbf-target" class="form-input mt-1" required></div><div><label for="settings-disponibilidade-target" class="block text-sm font-medium">Meta Disponibilidade (%)</label><input type="number" step="0.1" id="settings-disponibilidade-target" class="form-input mt-1" required></div></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="settingsModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar</button></div></form></div></div>
     <div id="dbModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-4">Base de Dados</h2><div id="db-table-container"></div><div class="flex justify-end mt-8"><button type="button" class="btn-close-modal bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="dbModal">Fechar</button></div></div></div>
     <div id="compareYearsModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-4">Comparar Anos</h2><div id="compare-years-selection" class="grid grid-cols-4 gap-4 mb-6"></div><div style="height: 400px;"><canvas id="comparisonChart"></canvas></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="compareYearsModal">Fechar</button><button type="button" id="btn-generate-comparison" class="bg-purple-600 text-white px-4 py-2 rounded-lg">Gerar</button></div></div></div>
@@ -579,33 +579,83 @@
 
         // --- FUNÇÕES DE EXPORTAÇÃO ---
 
-        function exportToPDF() {
+        async function exportToPDF() {
             const btn = document.getElementById('btn-export-pdf');
             const originalContent = btn.innerHTML;
             btn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`;
             btn.disabled = true;
 
-            const content = document.getElementById('dashboard-content');
-            html2canvas(content, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: '#4a55a2'
-            }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF({
-                    orientation: 'landscape',
-                    unit: 'px',
-                    format: [canvas.width, canvas.height]
-                });
-                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-                const year = document.getElementById('year-select').value;
-                pdf.save(`dashboard-manutencao-${year}.pdf`);
-            }).finally(() => {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: 'p', // Portrait for individual charts
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            // Select all card elements that contain a chart canvas
+            const chartCards = Array.from(document.querySelectorAll('#kpi-grids-container .card')).filter(card => card.querySelector('canvas'));
+
+            try {
+                for (let i = 0; i < chartCards.length; i++) {
+                    const card = chartCards[i];
+                    
+                    // Hide buttons inside the card if any, for printing
+                    const buttons = card.querySelectorAll('button');
+                    buttons.forEach(b => b.style.display = 'none');
+                    
+                    const canvas = await html2canvas(card, {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff' // Cards are white
+                    });
+                    
+                    // Restore button visibility
+                    buttons.forEach(b => b.style.display = '');
+
+                    const imgData = canvas.toDataURL('image/png');
+                    
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    const canvasWidth = canvas.width;
+                    const canvasHeight = canvas.height;
+                    const ratio = canvasWidth / canvasHeight;
+                    
+                    // A4 page size in mm: 210 x 297. Use margins.
+                    const margin = 15;
+                    let imgWidth = pdfWidth - (margin * 2);
+                    let imgHeight = imgWidth / ratio;
+
+                    // If height is still too large, adjust based on height
+                    if (imgHeight > pdfHeight - (margin * 2)) {
+                        imgHeight = pdfHeight - (margin * 2);
+                        imgWidth = imgHeight * ratio;
+                    }
+                    
+                    const x = (pdfWidth - imgWidth) / 2;
+                    const y = margin;
+
+                    if (i > 0) {
+                        pdf.addPage();
+                    }
+                    
+                    pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+                }
+                
+                if (chartCards.length > 0) {
+                    const year = document.getElementById('year-select').value;
+                    pdf.save(`dashboard-manutencao-graficos-${year}.pdf`);
+                } else {
+                    alert("Nenhum gráfico encontrado para exportar.");
+                }
+
+            } catch (error) {
+                console.error("Erro ao gerar PDF:", error);
+                alert("Ocorreu um erro ao gerar o PDF dos gráficos.");
+            } finally {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
                 lucide.createIcons();
-            });
+            }
         }
 
         function exportToXLSX() {
