@@ -1,191 +1,227 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Manutenção (Versão Completa)</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
-        .main-content { background-color: #4a55a2; }
-        .card { background-color: #ffffff; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); color: #1f2937; transition: transform 0.2s, box-shadow 0.2s; }
-        .sidebar { background-color: #3b4483; }
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
-        .modal-content { background-color: white; padding: 2rem; border-radius: 0.5rem; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .form-input { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; }
-        .form-input-small { padding: 0.5rem; text-align: center; }
-        .btn-disabled { cursor: not-allowed; background-color: #9ca3af !important; opacity: 0.7; }
-        #login-screen { background: linear-gradient(135deg, #3b4483 0%, #4a55a2 100%); }
-        .db-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
-        .db-table th, .db-table td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
-        .db-table th { background-color: #f9fafb; font-weight: 600; }
-        .copy-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 4px; border-radius: 4px; transition: background-color 0.2s; }
-        .copy-btn:hover { background-color: #e5e7eb; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Manutenção (Versão Completa)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
+.main-content { background-color: #4a55a2; }
+.card { background-color: #ffffff; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); color: #1f2937; transition: transform 0.2s, box-shadow 0.2s; }
+.sidebar { background-color: #3b4483; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal-content { background-color: white; padding: 2rem; border-radius: 0.5rem; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
+.loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.form-input { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; }
+.form-input-small { padding: 0.5rem; text-align: center; }
+.btn-disabled { cursor: not-allowed; background-color: #9ca3af !important; opacity: 0.7; }
+#login-screen { background: linear-gradient(135deg, #3b4483 0%, #4a55a2 100%); }
+.db-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
+.db-table th, .db-table td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
+.db-table th { background-color: #f9fafb; font-weight: 600; }
+.copy-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 4px; border-radius: 4px; transition: background-color 0.2s; }
+.copy-btn:hover { background-color: #e5e7eb; }
+</style>
 </head>
 <body>
-
-    <div id="app">
-        <!-- TELA DE LOGIN -->
-        <div id="login-screen" class="flex flex-col items-center justify-center min-h-screen text-white p-4">
-            <div class="text-center mb-8">
-                <h1 id="login-greeting" class="text-5xl font-bold"></h1>
-                <p id="login-clock" class="text-8xl font-bold tracking-wider mt-2"></p>
-            </div>
-            <div class="w-full max-w-sm bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg">
-                <h2 class="text-2xl font-bold text-center mb-6">Aceder ao Painel</h2>
-                <form id="login-form">
-                    <div class="mb-4"><label for="email" class="block mb-2 text-sm">Email</label><input type="email" id="email" class="form-input text-gray-800" required></div>
-                    <div class="mb-6"><label for="password" class="block mb-2 text-sm">Senha</label><input type="password" id="password" class="form-input text-gray-800" required></div>
-                    <p id="auth-error" class="text-red-400 text-center text-sm mb-4 h-5"></p>
-                    <button type="submit" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">Entrar</button>
-                     <button type="button" id="btn-test-login" class="w-full mt-3 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 rounded-lg transition">Testar</button>
-                </form>
-                <div id="test-credentials" class="hidden mt-4 p-3 bg-white/20 rounded-lg text-sm">
-                    <p class="font-bold mb-2">Use os dados abaixo para testar:</p>
-                    <div class="flex items-center justify-between">
-                        <span>Email: <code id="test-email">teste123</code></span>
-                        <span class="copy-btn" title="Copiar" onclick="copyToClipboard('teste123')"><i data-lucide="copy" class="w-4 h-4"></i></span>
-                    </div>
-                    <div class="flex items-center justify-between mt-1">
-                        <span>Senha: <code id="test-password">teste123</code></span>
-                        <span class="copy-btn" title="Copiar" onclick="copyToClipboard('teste123')"><i data-lucide="copy" class="w-4 h-4"></i></span>
-                    </div>
-                </div>
-            </div>
+<div id="app">
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen" class="flex flex-col items-center justify-center min-h-screen text-white p-4">
+        <div class="text-center mb-8">
+            <h1 id="login-greeting" class="text-5xl font-bold"></h1>
+            <p id="login-clock" class="text-8xl font-bold tracking-wider mt-2"></p>
         </div>
-
-        <!-- CONTAINER DO DASHBOARD -->
-        <div id="dashboard-container" class="hidden h-screen">
-            <div class="flex h-full">
-                <aside class="sidebar w-20 flex flex-col items-center py-6 space-y-6 text-white">
-                    <div class="text-2xl font-bold">KPI</div>
-                    <div class="flex flex-col items-center space-y-8 mt-8 flex-grow">
-                        <button id="btn-settings" class="p-3 rounded-lg sidebar-icon btn-disabled" title="Configurações" disabled><i data-lucide="settings"></i></button>
-                        <button id="btn-refresh" class="p-3 rounded-lg sidebar-icon" title="Atualizar"><i data-lucide="refresh-cw"></i></button>
-                        <button class="p-3 rounded-lg sidebar-icon bg-white text-[#3b4483] rounded-xl" title="Início"><i data-lucide="home"></i></button>
-                        <button id="btn-db" class="p-3 rounded-lg sidebar-icon" title="Base de Dados"><i data-lucide="database"></i></button>
-                    </div>
-                    <div class="flex flex-col items-center space-y-4">
-                        <button id="btn-help" class="p-3 rounded-lg sidebar-icon" title="Ajuda"><i data-lucide="help-circle"></i></button>
-                    </div>
-                </aside>
-                <main class="flex-1 flex flex-col relative">
-                    <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 z-50 flex items-center justify-center hidden"><div class="loader"></div></div>
-                    <header class="bg-white shadow-md p-4 flex justify-between items-center">
-                        <div>
-                            <h1 class="text-xl font-bold text-gray-800" id="header-greeting"></h1>
-                            <p class="text-sm text-gray-500" id="header-datetime"></p>
-                        </div>
-                        <div class="flex items-center gap-2 flex-wrap justify-end">
-                             <button id="btn-compare-years" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition flex items-center gap-2"><i data-lucide="bar-chart-3"></i>Comparar</button>
-                            <button id="btn-edit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 btn-disabled" disabled><i data-lucide="edit"></i>Editar</button>
-                            <button id="btn-add-year" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition flex items-center gap-2"><i data-lucide="plus-circle"></i>Adicionar</button>
-                            <button id="btn-logout" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition flex items-center gap-2"><i data-lucide="log-out"></i>Sair</button>
-                        </div>
-                    </header>
-                    <div id="dashboard-content" class="main-content flex-1 p-6 overflow-y-auto">
-                        <div id="no-data-message" class="hidden text-center text-white bg-indigo-800/50 p-10 rounded-lg">
-                             <h2 class="text-3xl font-bold mb-4">Bem-vindo ao seu Painel!</h2>
-                             <p class="text-lg mb-6">Nenhum dado foi encontrado. Comece por adicionar as informações do seu primeiro ano.</p>
-                             <button id="btn-add-first-year" class="bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition text-lg flex items-center gap-2 mx-auto"><i data-lucide="plus-circle"></i>Adicionar Dados do Primeiro Ano</button>
-                        </div>
-                        <div id="kpi-grids-container" class="hidden">
-                            <div class="flex justify-between items-center mb-6">
-                                <h2 class="text-2xl font-bold text-white">VISÃO GERAL DO PAINEL</h2>
-                                <div class="flex items-center space-x-2">
-                                    <label for="year-select" class="text-white">Escolha o ano:</label>
-                                    <select id="year-select" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"></select>
-                                </div>
-                            </div>
-                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
-                                <div class="card"><h3 class="text-gray-500 font-medium">Corretivas</h3><p id="kpi-corretivas" class="text-4xl font-bold mt-2">0</p></div>
-                                <div class="card"><h3 class="text-gray-500 font-medium">Preventivas</h3><p id="kpi-preventivas" class="text-4xl font-bold mt-2">0</p></div>
-                                <div class="card bg-yellow-100"><h3 class="text-yellow-800 font-medium">Preventivas a Vencer</h3><p id="kpi-preventivas-vencer" class="text-4xl font-bold mt-2 text-yellow-900">0</p></div>
-                                <div class="card"><h3 class="text-gray-500 font-medium">Preditivas</h3><p id="kpi-preditivas" class="text-4xl font-bold mt-2">0</p></div>
-                                <div class="card"><h3 class="text-gray-500 font-medium">Melhorias</h3><p id="kpi-melhorias" class="text-4xl font-bold mt-2">0</p></div>
-                            </div>
-                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                                <div class="card"><h3 class="text-gray-500 font-medium">Equipamentos Instalados</h3><div class="flex items-center justify-between mt-2"><i data-lucide="wrench" class="w-12 h-12 text-blue-500"></i><p id="kpi-equipamentos" class="text-5xl font-bold">0</p></div></div>
-                                <div class="card"><h3 class="text-gray-500 font-medium">O.S Cadastradas</h3><div class="flex items-center justify-between mt-2"><i data-lucide="clipboard-list" class="w-12 h-12 text-green-500"></i><p id="kpi-os-cadastradas" class="text-5xl font-bold">0</p></div></div>
-                                <div class="card bg-green-500 text-white"><h3 class="font-medium">Custo Total</h3><p id="kpi-custo-total" class="text-4xl font-bold mt-2">R$ 0,00</p></div>
-                            </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <div class="card"><h3 class="text-gray-500 font-medium mb-4">MTTR Trimestral</h3><div class="h-64"><canvas id="mttrChart"></canvas></div><div class="mt-4 text-center"><p id="mttr-target" class="text-gray-500">Target: 0</p></div></div>
-                                <div class="card"><h3 class="text-gray-500 font-medium mb-4">MTBF Mensal</h3><div class="h-64"><canvas id="mtbfChart"></canvas></div><div class="mt-4 text-center"><p id="mtbf-target" class="text-gray-500">Target: 0</p></div></div>
-                                <div class="card"><h3 class="text-gray-500 font-medium mb-4">DISPONIBILIDADE</h3><div class="h-64 relative"><canvas id="availabilityChart"></canvas></div><div class="mt-4 text-center"><p id="disponibilidade-target" class="text-gray-500">Target: 0%</p></div></div>
-                            </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                                <div class="card"><h3 class="text-gray-500 font-medium mb-4">Custos Mensais de Manutenção</h3><div class="h-64"><canvas id="monthlyCostsChart"></canvas></div></div>
-                                <div class="card"><h3 class="text-gray-500 font-medium mb-4">O.S Corretivas Mensais</h3><div class="h-64"><canvas id="monthlyCorrectivesChart"></canvas></div></div>
-                            </div>
-                        </div>
-                    </div>
-                </main>
+        <div class="w-full max-w-sm bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-bold text-center mb-6">Aceder ao Painel</h2>
+            <form id="login-form">
+                <div class="mb-4"><label for="email" class="block mb-2 text-sm">Email</label><input type="email" id="email" class="form-input text-gray-800" required></div>
+                <div class="mb-6"><label for="password" class="block mb-2 text-sm">Senha</label><input type="password" id="password" class="form-input text-gray-800" required></div>
+                <p id="auth-error" class="text-red-400 text-center text-sm mb-4 h-5"></p>
+                <button type="submit" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">Entrar</button>
+                <button type="button" id="btn-show-test-info" class="w-full mt-3 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 rounded-lg transition">Credenciais de Teste</button>
+                <button type="button" id="btn-test-mode" class="w-full mt-3 bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 rounded-lg transition">Entrar em Modo de Teste (Sem Salvar)</button>
+            </form>
+             <div id="test-credentials" class="hidden mt-4 p-3 bg-white/20 rounded-lg text-sm">
+                <p class="font-bold mb-2">Use os dados abaixo para o login real:</p>
+                <div class="flex items-center justify-between">
+                    <span>Email: <code id="test-email">teste123@email.com</code></span>
+                    <span class="copy-btn" title="Copiar" onclick="copyToClipboard('teste123@email.com')"><i data-lucide="copy" class="w-4 h-4"></i></span>
+                </div>
+                <div class="flex items-center justify-between mt-1">
+                    <span>Senha: <code id="test-password">teste123</code></span>
+                    <span class="copy-btn" title="Copiar" onclick="copyToClipboard('teste123')"><i data-lucide="copy" class="w-4 h-4"></i></span>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Modals -->
-    <div id="helpModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-xl font-bold mb-4">Ajuda</h2><p>Este é um painel de visão geral dos KPIs de manutenção. Use os botões para navegar, atualizar e gerir os dados.</p><button class="btn-close-modal mt-4 bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="helpModal">Fechar</button></div></div>
-    <div id="settingsModal" class="modal-overlay hidden"><div class="modal-content"><form id="settings-form"><h2 class="text-2xl font-bold mb-4">Configurações</h2><div class="space-y-4"><h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Perfil do Utilizador</h3><div><label for="settings-user-name" class="block text-sm font-medium">Seu Nome</label><input type="text" id="settings-user-name" class="form-input mt-1" placeholder="Como quer ser chamado?"></div><h3 class="text-lg font-semibold text-gray-800 mt-6 border-b pb-2">Metas para o ano <span id="settings-year-title" class="font-bold"></span></h3><div><label for="settings-mttr-target" class="block text-sm font-medium">Meta MTTR</label><input type="number" step="0.1" id="settings-mttr-target" class="form-input mt-1" required></div><div><label for="settings-mtbf-target" class="block text-sm font-medium">Meta MTBF</label><input type="number" step="0.1" id="settings-mtbf-target" class="form-input mt-1" required></div><div><label for="settings-disponibilidade-target" class="block text-sm font-medium">Meta Disponibilidade (%)</label><input type="number" step="0.1" id="settings-disponibilidade-target" class="form-input mt-1" required></div></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="settingsModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar</button></div></form></div></div>
-    <div id="dbModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-4">Base de Dados</h2><div id="db-table-container"></div><div class="flex justify-end mt-8"><button type="button" class="btn-close-modal bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="dbModal">Fechar</button></div></div></div>
-    <div id="compareYearsModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-4">Comparar Anos</h2><div id="compare-years-selection" class="grid grid-cols-4 gap-4 mb-6"></div><div style="height: 400px;"><canvas id="comparisonChart"></canvas></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="compareYearsModal">Fechar</button><button type="button" id="btn-generate-comparison" class="bg-purple-600 text-white px-4 py-2 rounded-lg">Gerar</button></div></div></div>
+    <!-- CONTAINER DO DASHBOARD -->
+    <div id="dashboard-container" class="hidden h-screen">
+        <div class="flex h-full">
+            <aside class="sidebar w-20 flex flex-col items-center py-6 space-y-6 text-white">
+                <div class="text-2xl font-bold">KPI</div>
+                <div class="flex flex-col items-center space-y-8 mt-8 flex-grow">
+                    <button id="btn-settings" class="p-3 rounded-lg sidebar-icon btn-disabled" title="Configurações" disabled><i data-lucide="settings"></i></button>
+                    <button id="btn-refresh" class="p-3 rounded-lg sidebar-icon" title="Atualizar"><i data-lucide="refresh-cw"></i></button>
+                    <button class="p-3 rounded-lg sidebar-icon bg-white text-[#3b4483] rounded-xl" title="Início"><i data-lucide="home"></i></button>
+                    <button id="btn-db" class="p-3 rounded-lg sidebar-icon" title="Base de Dados"><i data-lucide="database"></i></button>
+                </div>
+                <div class="flex flex-col items-center space-y-4">
+                    <button id="btn-help" class="p-3 rounded-lg sidebar-icon" title="Ajuda"><i data-lucide="help-circle"></i></button>
+                </div>
+            </aside>
+            <main class="flex-1 flex flex-col relative">
+                <div id="test-mode-banner" class="hidden bg-yellow-400 text-black text-center p-2 font-semibold">
+                    Modo de Teste: Nenhuma alteração será salva.
+                </div>
+                <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 z-50 flex items-center justify-center hidden"><div class="loader"></div></div>
+                <header class="bg-white shadow-md p-4 flex justify-between items-center">
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800" id="header-greeting"></h1>
+                        <p class="text-sm text-gray-500" id="header-datetime"></p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap justify-end">
+                         <button id="btn-compare-years" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition flex items-center gap-2"><i data-lucide="bar-chart-3"></i>Comparar</button>
+                        <button id="btn-edit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 btn-disabled" disabled><i data-lucide="edit"></i>Editar</button>
+                        <button id="btn-add-year" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition flex items-center gap-2"><i data-lucide="plus-circle"></i>Adicionar</button>
+                        <button id="btn-logout" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition flex items-center gap-2"><i data-lucide="log-out"></i>Sair</button>
+                    </div>
+                </header>
+                <div id="dashboard-content" class="main-content flex-1 p-6 overflow-y-auto">
+                    <div id="no-data-message" class="hidden text-center text-white bg-indigo-800/50 p-10 rounded-lg">
+                         <h2 class="text-3xl font-bold mb-4">Bem-vindo ao seu Painel!</h2>
+                         <p class="text-lg mb-6">Nenhum dado foi encontrado. Comece por adicionar as informações do seu primeiro ano.</p>
+                         <button id="btn-add-first-year" class="bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition text-lg flex items-center gap-2 mx-auto"><i data-lucide="plus-circle"></i>Adicionar Dados do Primeiro Ano</button>
+                    </div>
+                    <div id="kpi-grids-container" class="hidden">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-white">VISÃO GERAL DO PAINEL</h2>
+                            <div class="flex items-center space-x-2">
+                                <label for="year-select" class="text-white">Escolha o ano:</label>
+                                <select id="year-select" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"></select>
+                            </div>
+                        </div>
+                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
+                            <div class="card"><h3 class="text-gray-500 font-medium">Corretivas</h3><p id="kpi-corretivas" class="text-4xl font-bold mt-2">0</p></div>
+                            <div class="card"><h3 class="text-gray-500 font-medium">Preventivas</h3><p id="kpi-preventivas" class="text-4xl font-bold mt-2">0</p></div>
+                            <div class="card bg-yellow-100"><h3 class="text-yellow-800 font-medium">Preventivas a Vencer</h3><p id="kpi-preventivas-vencer" class="text-4xl font-bold mt-2 text-yellow-900">0</p></div>
+                            <div class="card"><h3 class="text-gray-500 font-medium">Preditivas</h3><p id="kpi-preditivas" class="text-4xl font-bold mt-2">0</p></div>
+                            <div class="card"><h3 class="text-gray-500 font-medium">Melhorias</h3><p id="kpi-melhorias" class="text-4xl font-bold mt-2">0</p></div>
+                        </div>
+                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                            <div class="card"><h3 class="text-gray-500 font-medium">Equipamentos Instalados</h3><div class="flex items-center justify-between mt-2"><i data-lucide="wrench" class="w-12 h-12 text-blue-500"></i><p id="kpi-equipamentos" class="text-5xl font-bold">0</p></div></div>
+                            <div class="card"><h3 class="text-gray-500 font-medium">O.S Cadastradas</h3><div class="flex items-center justify-between mt-2"><i data-lucide="clipboard-list" class="w-12 h-12 text-green-500"></i><p id="kpi-os-cadastradas" class="text-5xl font-bold">0</p></div></div>
+                            <div class="card bg-green-500 text-white"><h3 class="font-medium">Custo Total</h3><p id="kpi-custo-total" class="text-4xl font-bold mt-2">R$ 0,00</p></div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="card"><h3 class="text-gray-500 font-medium mb-4">MTTR Trimestral</h3><div class="h-64"><canvas id="mttrChart"></canvas></div><div class="mt-4 text-center"><p id="mttr-target" class="text-gray-500">Target: 0</p></div></div>
+                            <div class="card"><h3 class="text-gray-500 font-medium mb-4">MTBF Mensal</h3><div class="h-64"><canvas id="mtbfChart"></canvas></div><div class="mt-4 text-center"><p id="mtbf-target" class="text-gray-500">Target: 0</p></div></div>
+                            <div class="card"><h3 class="text-gray-500 font-medium mb-4">DISPONIBILIDADE</h3><div class="h-64 relative"><canvas id="availabilityChart"></canvas></div><div class="mt-4 text-center"><p id="disponibilidade-target" class="text-gray-500">Target: 0%</p></div></div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                            <div class="card"><h3 class="text-gray-500 font-medium mb-4">Custos Mensais de Manutenção</h3><div class="h-64"><canvas id="monthlyCostsChart"></canvas></div></div>
+                            <div class="card"><h3 class="text-gray-500 font-medium mb-4">O.S Corretivas Mensais</h3><div class="h-64"><canvas id="monthlyCorrectivesChart"></canvas></div></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</div>
 
-    <div id="addYearModal" class="modal-overlay hidden"><div class="modal-content"><form id="add-year-form"><h2 class="text-2xl font-bold mb-4">Adicionar Novos Dados Anuais</h2><div class="mb-4"><label for="add-year-input" class="block text-sm font-medium text-gray-700">Ano</label><input type="number" id="add-year-input" placeholder="Ex: 2025" class="form-input mt-1" required></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Indicadores Principais (KPIs)</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700">Preventivas</label><input type="number" id="add-preventivas" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Preventivas a Vencer</label><input type="number" id="add-preventivas-vencer" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Preditivas</label><input type="number" id="add-preditivas" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Melhorias</label><input type="number" id="add-melhorias" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Equipamentos Instalados</label><input type="number" id="add-equipamentos" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">O.S Cadastradas</label><input type="number" id="add-os-cadastradas" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Disponibilidade (%)</label><input type="number" step="0.1" id="add-disponibilidade" class="form-input mt-1" value="90" required></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados Mensais</h3><div><label class="block text-sm font-medium text-gray-700">Custos Mensais (R$)</label><div class="grid grid-cols-6 gap-2 mt-1"><input type="number" step="0.01" placeholder="Jan" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Fev" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Mar" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Abr" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Mai" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Jun" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Jul" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Ago" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Set" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Out" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Nov" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Dez" class="form-input form-input-small add-custo-mensal" value="0" required></div></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">O.S Corretivas Mensais</label><div class="grid grid-cols-6 gap-2 mt-1"><input type="number" placeholder="Jan" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Fev" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Mar" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Abr" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Mai" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Jun" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Jul" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Ago" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Set" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Out" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Nov" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Dez" class="form-input form-input-small add-corretivas-mensal" value="0" required></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados dos Gráficos Trimestrais/Anuais</h3><div><label class="block text-sm font-medium text-gray-700">MTTR (3 valores)</label><input type="text" id="add-chart-mttr" class="form-input mt-1" value="0, 0, 0" required><p class="text-xs text-gray-500 mt-1">Insira os 3 valores trimestrais, separados por vírgula.</p></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">MTBF (12 valores)</label><input type="text" id="add-chart-mtbf" class="form-input mt-1" value="0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0" required><p class="text-xs text-gray-500 mt-1">Insira os 12 valores mensais, separados por vírgula.</p></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="addYearModal">Cancelar</button><button type="submit" id="save-new-year-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg">Criar Ano</button></div></form></div></div>
-    <div id="editDataModal" class="modal-overlay hidden"><div class="modal-content"><form id="edit-form"><h2 class="text-2xl font-bold mb-4">Editar Dados de <span id="edit-year-title"></span></h2><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Indicadores Principais (KPIs)</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700">Preventivas</label><input type="number" id="edit-preventivas" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Preventivas a Vencer</label><input type="number" id="edit-preventivas-vencer" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Preditivas</label><input type="number" id="edit-preditivas" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Melhorias</label><input type="number" id="edit-melhorias" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Equipamentos Instalados</label><input type="number" id="edit-equipamentos" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">O.S Cadastradas</label><input type="number" id="edit-os-cadastradas" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Disponibilidade (%)</label><input type="number" step="0.1" id="edit-disponibilidade" class="form-input mt-1" required></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados Mensais</h3><div><label class="block text-sm font-medium text-gray-700">Custos Mensais (R$)</label><div id="edit-custos-mensais-container" class="grid grid-cols-6 gap-2 mt-1"></div></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">O.S Corretivas Mensais</label><div id="edit-corretivas-mensais-container" class="grid grid-cols-6 gap-2 mt-1"></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados dos Gráficos Trimestrais/Anuais</h3><div><label class="block text-sm font-medium text-gray-700">MTTR (3 valores)</label><input type="text" id="edit-chart-mttr" class="form-input mt-1" required></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">MTBF (12 valores)</label><input type="text" id="edit-chart-mtbf" class="form-input mt-1" required></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="editDataModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar Alterações</button></div></form></div></div>
+<!-- Modals -->
+<div id="helpModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-xl font-bold mb-4">Ajuda</h2><p>Este é um painel de visão geral dos KPIs de manutenção. Use os botões para navegar, atualizar e gerir os dados.</p><button class="btn-close-modal mt-4 bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="helpModal">Fechar</button></div></div>
+<div id="settingsModal" class="modal-overlay hidden"><div class="modal-content"><form id="settings-form"><h2 class="text-2xl font-bold mb-4">Configurações</h2><div class="space-y-4"><h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Perfil do Utilizador</h3><div><label for="settings-user-name" class="block text-sm font-medium">Seu Nome</label><input type="text" id="settings-user-name" class="form-input mt-1" placeholder="Como quer ser chamado?"></div><h3 class="text-lg font-semibold text-gray-800 mt-6 border-b pb-2">Metas para o ano <span id="settings-year-title" class="font-bold"></span></h3><div><label for="settings-mttr-target" class="block text-sm font-medium">Meta MTTR</label><input type="number" step="0.1" id="settings-mttr-target" class="form-input mt-1" required></div><div><label for="settings-mtbf-target" class="block text-sm font-medium">Meta MTBF</label><input type="number" step="0.1" id="settings-mtbf-target" class="form-input mt-1" required></div><div><label for="settings-disponibilidade-target" class="block text-sm font-medium">Meta Disponibilidade (%)</label><input type="number" step="0.1" id="settings-disponibilidade-target" class="form-input mt-1" required></div></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="settingsModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar</button></div></form></div></div>
+<div id="dbModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-4">Base de Dados</h2><div id="db-table-container"></div><div class="flex justify-end mt-8"><button type="button" class="btn-close-modal bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="dbModal">Fechar</button></div></div></div>
+<div id="compareYearsModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-4">Comparar Anos</h2><div id="compare-years-selection" class="grid grid-cols-4 gap-4 mb-6"></div><div style="height: 400px;"><canvas id="comparisonChart"></canvas></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="compareYearsModal">Fechar</button><button type="button" id="btn-generate-comparison" class="bg-purple-600 text-white px-4 py-2 rounded-lg">Gerar</button></div></div></div>
 
-    <script>
-        // Função global para copiar texto
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                alert('Copiado para a área de transferência!');
-            }, (err) => {
-                alert('Erro ao copiar: ', err);
-            });
+<div id="addYearModal" class="modal-overlay hidden"><div class="modal-content"><form id="add-year-form"><h2 class="text-2xl font-bold mb-4">Adicionar Novos Dados Anuais</h2><div class="mb-4"><label for="add-year-input" class="block text-sm font-medium text-gray-700">Ano</label><input type="number" id="add-year-input" placeholder="Ex: 2025" class="form-input mt-1" required></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Indicadores Principais (KPIs)</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700">Preventivas</label><input type="number" id="add-preventivas" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Preventivas a Vencer</label><input type="number" id="add-preventivas-vencer" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Preditivas</label><input type="number" id="add-preditivas" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Melhorias</label><input type="number" id="add-melhorias" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Equipamentos Instalados</label><input type="number" id="add-equipamentos" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">O.S Cadastradas</label><input type="number" id="add-os-cadastradas" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Disponibilidade (%)</label><input type="number" step="0.1" id="add-disponibilidade" class="form-input mt-1" value="90" required></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados Mensais</h3><div><label class="block text-sm font-medium text-gray-700">Custos Mensais (R$)</label><div class="grid grid-cols-6 gap-2 mt-1"><input type="number" step="0.01" placeholder="Jan" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Fev" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Mar" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Abr" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Mai" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Jun" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Jul" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Ago" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Set" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Out" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Nov" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Dez" class="form-input form-input-small add-custo-mensal" value="0" required></div></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">O.S Corretivas Mensais</label><div class="grid grid-cols-6 gap-2 mt-1"><input type="number" placeholder="Jan" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Fev" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Mar" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Abr" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Mai" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Jun" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Jul" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Ago" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Set" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Out" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Nov" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Dez" class="form-input form-input-small add-corretivas-mensal" value="0" required></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados dos Gráficos Trimestrais/Anuais</h3><div><label class="block text-sm font-medium text-gray-700">MTTR (3 valores)</label><input type="text" id="add-chart-mttr" class="form-input mt-1" value="0, 0, 0" required><p class="text-xs text-gray-500 mt-1">Insira os 3 valores trimestrais, separados por vírgula.</p></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">MTBF (12 valores)</label><input type="text" id="add-chart-mtbf" class="form-input mt-1" value="0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0" required><p class="text-xs text-gray-500 mt-1">Insira os 12 valores mensais, separados por vírgula.</p></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="addYearModal">Cancelar</button><button type="submit" id="save-new-year-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg">Criar Ano</button></div></form></div></div>
+<div id="editDataModal" class="modal-overlay hidden"><div class="modal-content"><form id="edit-form"><h2 class="text-2xl font-bold mb-4">Editar Dados de <span id="edit-year-title"></span></h2><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Indicadores Principais (KPIs)</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700">Preventivas</label><input type="number" id="edit-preventivas" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Preventivas a Vencer</label><input type="number" id="edit-preventivas-vencer" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Preditivas</label><input type="number" id="edit-preditivas" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Melhorias</label><input type="number" id="edit-melhorias" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Equipamentos Instalados</label><input type="number" id="edit-equipamentos" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">O.S Cadastradas</label><input type="number" id="edit-os-cadastradas" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Disponibilidade (%)</label><input type="number" step="0.1" id="edit-disponibilidade" class="form-input mt-1" required></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados Mensais</h3><div><label class="block text-sm font-medium text-gray-700">Custos Mensais (R$)</label><div id="edit-custos-mensais-container" class="grid grid-cols-6 gap-2 mt-1"></div></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">O.S Corretivas Mensais</label><div id="edit-corretivas-mensais-container" class="grid grid-cols-6 gap-2 mt-1"></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados dos Gráficos Trimestrais/Anuais</h3><div><label class="block text-sm font-medium text-gray-700">MTTR (3 valores)</label><input type="text" id="edit-chart-mttr" class="form-input mt-1" required></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">MTBF (12 valores)</label><input type="text" id="edit-chart-mtbf" class="form-input mt-1" required></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="editDataModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar Alterações</button></div></form></div></div>
+
+<script>
+    // Função global para copiar texto
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Copiado para a área de transferência!');
+        }, (err) => {
+            alert('Erro ao copiar: ', err);
+        });
+    }
+</script>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, collection, getDocs, setDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // --- DADOS DE TESTE (MOCK) ---
+    let mockData = {
+        "2024": {
+            kpis: {
+                preventivas: 150, preventivasVencer: 15, preditivas: 45, melhorias: 22,
+                equipamentos: 310, osCadastradas: 512, disponibilidade: 96.5,
+                custo_mensal: [5100, 4800, 5500, 5200, 6000, 5800, 6200, 5900, 6500, 6300, 7000, 6800],
+                corretivas_mensal: [5, 4, 6, 5, 7, 6, 8, 7, 9, 8, 10, 9]
+            },
+            charts: {
+                mttr: [4.5, 4.2, 4.8],
+                mtbf: [720, 750, 700, 730, 680, 690, 650, 670, 620, 640, 600, 610]
+            },
+            targets: { mttr: 5, mtbf: 600, disponibilidade: 95 }
         }
-    </script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, getDocs, setDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    };
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDShfzoFgVXEgNzWkbwi99xCpcMdrP9Wis",
-            authDomain: "dashboard-manutencao-31cc1.firebaseapp.com",
-            projectId: "dashboard-manutencao-31cc1",
-            storageBucket: "dashboard-manutencao-31cc1.firebasestorage.app",
-            messagingSenderId: "2579677725",
-            appId: "1:2579677725:web:0a25ff2e34df14debabcf4"
-        };
+    const firebaseConfig = {
+        apiKey: "AIzaSyDShfzoFgVXEgNzWkbwi99xCpcMdrP9Wis",
+        authDomain: "dashboard-manutencao-31cc1.firebaseapp.com",
+        projectId: "dashboard-manutencao-31cc1",
+        storageBucket: "dashboard-manutencao-31cc1.firebasestorage.app",
+        messagingSenderId: "2579677725",
+        appId: "1:2579677725:web:0a25ff2e34df14debabcf4"
+    };
+    
+    let app, auth, db;
+    let isTestMode = false;
+    let dbUnsubscribe = null;
+    let clockInterval = null;
+    let headerInterval = null;
+    let currentYearData = {};
+    let currentUserData = {};
+    let isDataLoaded = false;
+    const charts = {};
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+    const loginScreen = document.getElementById('login-screen');
+    const dashboardContainer = document.getElementById('dashboard-container');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const authError = document.getElementById('auth-error');
 
-        let dbUnsubscribe = null;
-        let clockInterval = null;
-        let headerInterval = null;
-        let currentYearData = {};
-        let currentUserData = {};
-        let isDataLoaded = false;
-        const charts = {};
+    const showModal = (modalId) => document.getElementById(modalId)?.classList.remove('hidden');
+    const closeModal = (modalId) => document.getElementById(modalId)?.classList.add('hidden');
+    
+    function enterTestMode() {
+        isTestMode = true;
+        loginScreen.classList.add('hidden');
+        dashboardContainer.classList.remove('hidden');
+        document.getElementById('test-mode-banner').classList.remove('hidden');
+        
+        currentUserData = { name: 'Usuário Teste' };
+        startHeaderUpdates();
+        setupDashboardEventListeners();
+        initializeDashboard();
+    }
 
-        const loginScreen = document.getElementById('login-screen');
-        const dashboardContainer = document.getElementById('dashboard-container');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const authError = document.getElementById('auth-error');
-
-        const showModal = (modalId) => document.getElementById(modalId)?.classList.remove('hidden');
-        const closeModal = (modalId) => document.getElementById(modalId)?.classList.add('hidden');
-
-        onAuthStateChanged(auth, user => {
+    function initializeFirebase() {
+         app = initializeApp(firebaseConfig);
+         auth = getAuth(app);
+         db = getFirestore(app);
+         
+         onAuthStateChanged(auth, user => {
+            if (isTestMode) return; // Não fazer nada se estiver em modo de teste
             if (user) {
                 loginScreen.classList.add('hidden');
                 dashboardContainer.classList.remove('hidden');
@@ -202,484 +238,566 @@
                 setButtonsState(false);
             }
         });
+    }
+   
+    async function loadUserData(user) {
+        if (isTestMode) return;
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        currentUserData = userSnap.exists() ? userSnap.data() : { name: user.email };
+        startHeaderUpdates();
+    }
 
-        async function loadUserData(user) {
-            const userRef = doc(db, "users", user.uid);
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists()) {
-                currentUserData = userSnap.data();
+    function startHeaderUpdates() {
+        const updateHeader = () => {
+            const now = new Date();
+            const hour = now.getHours();
+            let greeting = '';
+            if (hour >= 5 && hour < 12) greeting = 'Bom Dia';
+            else if (hour >= 12 && hour < 18) greeting = 'Boa Tarde';
+            else greeting = 'Boa Noite';
+            
+            document.getElementById('header-greeting').textContent = `${greeting}, ${currentUserData.name || ''}!`;
+            document.getElementById('header-datetime').textContent = now.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
+        };
+        
+        if (headerInterval) clearInterval(headerInterval);
+        updateHeader();
+        headerInterval = setInterval(updateHeader, 10000);
+    }
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        authError.textContent = '';
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+        } catch (error) {
+            authError.textContent = 'E-mail ou senha incorretos.';
+        }
+    }
+    
+    async function initializeDashboard() {
+        loadingOverlay.classList.remove('hidden');
+        const yearSelector = document.getElementById('year-select');
+        
+        if (isTestMode) {
+            const years = Object.keys(mockData).sort((a, b) => b - a);
+            if (years.length === 0) {
+                 showNoDataMessage(true);
+                 setButtonsState(false);
             } else {
-                currentUserData = { name: user.email }; // Fallback para o email
+                showNoDataMessage(false);
+                yearSelector.innerHTML = years.map(year => `<option value="${year}">${year}</option>`).join('');
+                listenToYearData(years[0]); // Pega o ano mais recente
             }
-            startHeaderUpdates();
+            loadingOverlay.classList.add('hidden');
+            return;
         }
 
-        function startHeaderUpdates() {
-            const updateHeader = () => {
-                const now = new Date();
-                const hour = now.getHours();
-                let greeting = '';
-                if (hour >= 5 && hour < 12) greeting = 'Bom Dia';
-                else if (hour >= 12 && hour < 18) greeting = 'Boa Tarde';
-                else greeting = 'Boa Noite';
-                
-                document.getElementById('header-greeting').textContent = `${greeting}, ${currentUserData.name || ''}!`;
-                document.getElementById('header-datetime').textContent = now.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
-            };
-            
-            if (headerInterval) clearInterval(headerInterval);
-            updateHeader(); // Chame imediatamente
-            headerInterval = setInterval(updateHeader, 10000); // Atualiza a cada 10 segundos
-        }
+        try {
+            const querySnapshot = await getDocs(collection(db, "maintenance_data"));
+            const years = querySnapshot.docs.map(doc => doc.id);
 
-        async function handleLogin(e) {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            authError.textContent = '';
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-            } catch (error) {
-                authError.textContent = 'E-mail ou senha incorretos.';
+            if (years.length === 0) {
+                showNoDataMessage(true); setButtonsState(false);
+            } else {
+                showNoDataMessage(false);
+                years.sort((a, b) => b - a);
+                yearSelector.innerHTML = years.map(year => `<option value="${year}">${year}</option>`).join('');
+                listenToYearData(years[0]);
             }
+        } catch (error) {
+            console.error("Erro ao buscar dados iniciais:", error);
+            showNoDataMessage(true);
+        } finally {
+            loadingOverlay.classList.add('hidden');
+        }
+    }
+
+    function listenToYearData(year) {
+        if (!year) return;
+        loadingOverlay.classList.remove('hidden');
+        setButtonsState(false);
+
+        if(isTestMode) {
+            currentYearData = mockData[year];
+            updateDashboardUI(currentYearData);
+            setButtonsState(true);
+            loadingOverlay.classList.add('hidden');
+            return;
         }
         
-        async function initializeDashboard() {
-            loadingOverlay.classList.remove('hidden');
-            const yearSelector = document.getElementById('year-select');
-            
-            try {
-                const querySnapshot = await getDocs(collection(db, "maintenance_data"));
-                const years = querySnapshot.docs.map(doc => doc.id);
-
-                if (years.length === 0) {
-                    showNoDataMessage(true);
-                    setButtonsState(false);
-                } else {
-                    showNoDataMessage(false);
-                    years.sort((a, b) => b - a);
-                    yearSelector.innerHTML = years.map(year => `<option value="${year}">${year}</option>`).join('');
-                    listenToYearData(years[0]);
-                }
-            } catch (error) {
-                console.error("Erro ao buscar dados iniciais:", error);
-                showNoDataMessage(true);
-            } finally {
-                loadingOverlay.classList.add('hidden');
+        if (dbUnsubscribe) dbUnsubscribe();
+        const docRef = doc(db, "maintenance_data", year);
+        dbUnsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                currentYearData = docSnap.data();
+                updateDashboardUI(currentYearData);
+                setButtonsState(true);
+            } else {
+                setButtonsState(false);
             }
-        }
-
-        function listenToYearData(year) {
-            if (!year) return;
-            loadingOverlay.classList.remove('hidden');
-            setButtonsState(false);
-            
-            if (dbUnsubscribe) dbUnsubscribe();
-            const docRef = doc(db, "maintenance_data", year);
-            dbUnsubscribe = onSnapshot(docRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    currentYearData = docSnap.data();
-                    updateDashboardUI(currentYearData);
-                    setButtonsState(true);
-                } else {
-                    setButtonsState(false);
-                }
-                loadingOverlay.classList.add('hidden');
-            }, (error) => {
-                console.error("Erro ao escutar dados:", error);
-                loadingOverlay.classList.add('hidden');
-            });
-        }
-        
-        function updateDashboardUI(data) {
-            if (!data || !data.kpis) return;
-            
-            const kpis = data.kpis;
-            const custoMensal = kpis.custo_mensal || Array(12).fill(0);
-            const corretivasMensal = kpis.corretivas_mensal || Array(12).fill(0);
-            const totalCost = custoMensal.reduce((a, b) => a + b, 0);
-            const totalCorrectives = corretivasMensal.reduce((a, b) => a + b, 0);
-
-            document.getElementById('kpi-corretivas').textContent = totalCorrectives;
-            document.getElementById('kpi-custo-total').textContent = `R$ ${totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            document.getElementById('kpi-preventivas').textContent = kpis.preventivas;
-            document.getElementById('kpi-preventivas-vencer').textContent = kpis.preventivasVencer;
-            document.getElementById('kpi-preditivas').textContent = kpis.preditivas;
-            document.getElementById('kpi-melhorias').textContent = kpis.melhorias;
-            document.getElementById('kpi-equipamentos').textContent = kpis.equipamentos;
-            document.getElementById('kpi-os-cadastradas').textContent = kpis.osCadastradas;
-
-            const targets = data.targets || {};
-            document.getElementById('mttr-target').textContent = `Target: ${targets.mttr || 0}`;
-            document.getElementById('mtbf-target').textContent = `Target: ${targets.mtbf || 0}`;
-            document.getElementById('disponibilidade-target').textContent = `Target: ${targets.disponibilidade || 0}%`;
-
-            const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-
-            updateChart('mttrChart', ['Trim. 1', 'Trim. 2', 'Trim. 3'], data.charts.mttr, 'MTTR', 'bar', {}, targets.mttr, 'lower');
-            updateChart('mtbfChart', months, data.charts.mtbf, 'MTBF', 'line', {}, targets.mtbf, 'higher');
-            const availabilityValue = kpis.disponibilidade || 0;
-            updateChart('availabilityChart', ['Disponibilidade', 'Restante'], [availabilityValue, 100 - availabilityValue], 'Disponibilidade', 'doughnut', {}, targets.disponibilidade, 'higher');
-            updateChart('monthlyCostsChart', months, custoMensal, 'Custo (R$)', 'line');
-            updateChart('monthlyCorrectivesChart', months, corretivasMensal, 'Nº de O.S Corretivas', 'bar');
-
-            lucide.createIcons();
-        }
-
-        const setButtonsState = (enabled) => {
-             const btnEdit = document.getElementById('btn-edit');
-             const btnSettings = document.getElementById('btn-settings');
-             isDataLoaded = enabled;
-             [btnEdit, btnSettings].forEach(btn => {
-                 if (btn) {
-                     btn.disabled = !enabled;
-                     enabled ? btn.classList.remove('btn-disabled') : btn.classList.add('btn-disabled');
-                 }
-             });
-        };
-
-        const showNoDataMessage = (show) => {
-            document.getElementById('kpi-grids-container').style.display = show ? 'none' : 'block';
-            document.getElementById('no-data-message').style.display = show ? 'block' : 'none';
-        };
-        
-        function startClockAndGreeting() {
-            const update = () => {
-                const now = new Date();
-                const hour = now.getHours();
-                const greetingEl = document.getElementById('login-greeting');
-                const clockEl = document.getElementById('login-clock');
-                if (greetingEl) {
-                    if (hour >= 5 && hour < 12) greetingEl.textContent = 'Bom Dia';
-                    else if (hour >= 12 && hour < 18) greetingEl.textContent = 'Boa Tarde';
-                    else greetingEl.textContent = 'Boa Noite';
-                }
-                if (clockEl) clockEl.textContent = now.toLocaleTimeString('pt-BR');
-            };
-            update();
-            if (clockInterval) clearInterval(clockInterval);
-            clockInterval = setInterval(update, 1000);
-        }
-
-        let listenersAttached = false;
-        function setupDashboardEventListeners() {
-            if (listenersAttached) return;
-            
-            document.getElementById('btn-logout').addEventListener('click', () => signOut(auth));
-            document.getElementById('btn-settings').addEventListener('click', () => isDataLoaded && showSettingsModal());
-            document.getElementById('btn-db').addEventListener('click', showDatabaseModal);
-            document.getElementById('btn-refresh').addEventListener('click', () => { if(isDataLoaded) listenToYearData(document.getElementById('year-select').value); });
-            document.getElementById('btn-help').addEventListener('click', () => showModal('helpModal'));
-            document.getElementById('btn-edit').addEventListener('click', () => isDataLoaded && showEditModal());
-            document.getElementById('btn-add-year').addEventListener('click', () => showModal('addYearModal'));
-            document.getElementById('btn-add-first-year').addEventListener('click', () => showModal('addYearModal'));
-            document.getElementById('year-select').addEventListener('change', (e) => listenToYearData(e.target.value));
-            document.getElementById('btn-compare-years').addEventListener('click', showCompareModal);
-            document.getElementById('btn-generate-comparison').addEventListener('click', generateComparisonChart);
-            
-            document.querySelectorAll('.btn-close-modal').forEach(btn => { btn.addEventListener('click', () => closeModal(btn.dataset.modalId)); });
-            
-            document.getElementById('add-year-form').addEventListener('submit', saveNewYearData);
-            document.getElementById('edit-form').addEventListener('submit', saveEditedData);
-            document.getElementById('settings-form').addEventListener('submit', saveSettings);
-            
-            listenersAttached = true;
-        }
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('login-form').addEventListener('submit', handleLogin);
-            document.getElementById('btn-test-login').addEventListener('click', () => {
-                document.getElementById('test-credentials').classList.toggle('hidden');
-                lucide.createIcons(); // Recriar ícones se estiverem no div
-            });
+            loadingOverlay.classList.add('hidden');
+        }, (error) => {
+            console.error("Erro ao escutar dados:", error);
+            loadingOverlay.classList.add('hidden');
         });
+    }
+    
+    function updateDashboardUI(data) {
+        if (!data || !data.kpis) return;
+        
+        const kpis = data.kpis;
+        const custoMensal = kpis.custo_mensal || Array(12).fill(0);
+        const corretivasMensal = kpis.corretivas_mensal || Array(12).fill(0);
+        const totalCost = custoMensal.reduce((a, b) => a + b, 0);
+        const totalCorrectives = corretivasMensal.reduce((a, b) => a + b, 0);
 
-        function showEditModal() {
-            const year = document.getElementById('year-select').value;
-            document.getElementById('edit-year-title').textContent = year;
-            const kpis = currentYearData.kpis;
-            
-            document.getElementById('edit-preventivas').value = kpis.preventivas;
-            document.getElementById('edit-preventivas-vencer').value = kpis.preventivasVencer;
-            document.getElementById('edit-preditivas').value = kpis.preditivas;
-            document.getElementById('edit-melhorias').value = kpis.melhorias;
-            document.getElementById('edit-equipamentos').value = kpis.equipamentos;
-            document.getElementById('edit-os-cadastradas').value = kpis.osCadastradas;
-            document.getElementById('edit-disponibilidade').value = kpis.disponibilidade;
+        document.getElementById('kpi-corretivas').textContent = totalCorrectives;
+        document.getElementById('kpi-custo-total').textContent = `R$ ${totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        document.getElementById('kpi-preventivas').textContent = kpis.preventivas;
+        document.getElementById('kpi-preventivas-vencer').textContent = kpis.preventivasVencer;
+        document.getElementById('kpi-preditivas').textContent = kpis.preditivas;
+        document.getElementById('kpi-melhorias').textContent = kpis.melhorias;
+        document.getElementById('kpi-equipamentos').textContent = kpis.equipamentos;
+        document.getElementById('kpi-os-cadastradas').textContent = kpis.osCadastradas;
 
-            const createMonthlyInputs = (containerId, values, prefix, type = "number", step = "1") => {
-                const container = document.getElementById(containerId);
-                container.innerHTML = '';
-                const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-                const currentValues = values && values.length === 12 ? values : Array(12).fill(0);
-                currentValues.forEach((value, index) => {
-                    container.innerHTML += `<input type="${type}" step="${step}" placeholder="${months[index]}" class="form-input form-input-small ${prefix}-mensal" value="${value}" required>`;
-                });
-            };
-            createMonthlyInputs('edit-custos-mensais-container', kpis.custo_mensal, 'edit-custo', 'number', '0.01');
-            createMonthlyInputs('edit-corretivas-mensais-container', kpis.corretivas_mensal, 'edit-corretivas');
-            
-            document.getElementById('edit-chart-mttr').value = currentYearData.charts.mttr.join(', ');
-            document.getElementById('edit-chart-mtbf').value = currentYearData.charts.mtbf.join(', ');
+        const targets = data.targets || {};
+        document.getElementById('mttr-target').textContent = `Target: ${targets.mttr || 0}`;
+        document.getElementById('mtbf-target').textContent = `Target: ${targets.mtbf || 0}`;
+        document.getElementById('disponibilidade-target').textContent = `Target: ${targets.disponibilidade || 0}%`;
 
-            showModal('editDataModal');
-        }
+        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-        function showSettingsModal() {
-            const year = document.getElementById('year-select').value;
-            document.getElementById('settings-year-title').textContent = year;
+        updateChart('mttrChart', ['Trim. 1', 'Trim. 2', 'Trim. 3'], data.charts.mttr, 'MTTR', 'bar', {}, targets.mttr, 'lower');
+        updateChart('mtbfChart', months, data.charts.mtbf, 'MTBF', 'line', {}, targets.mtbf, 'higher');
+        const availabilityValue = kpis.disponibilidade || 0;
+        updateChart('availabilityChart', ['Disponibilidade', 'Restante'], [availabilityValue, 100 - availabilityValue], 'Disponibilidade', 'doughnut', {}, targets.disponibilidade, 'higher');
+        updateChart('monthlyCostsChart', months, custoMensal, 'Custo (R$)', 'line');
+        updateChart('monthlyCorrectivesChart', months, corretivasMensal, 'Nº de O.S Corretivas', 'bar');
 
-            // Preencher nome do usuário
-            document.getElementById('settings-user-name').value = currentUserData.name || '';
-            
-            const targets = currentYearData.targets || {};
-            document.getElementById('settings-mttr-target').value = targets.mttr || 0;
-            document.getElementById('settings-mtbf-target').value = targets.mtbf || 0;
-            document.getElementById('settings-disponibilidade-target').value = targets.disponibilidade || 95;
-            showModal('settingsModal');
-        }
+        lucide.createIcons();
+    }
 
-        async function showDatabaseModal() {
-            showModal('dbModal');
-            const container = document.getElementById('db-table-container');
-            container.innerHTML = '<div class="loader mx-auto"></div>';
-            try {
-                const querySnapshot = await getDocs(collection(db, "maintenance_data"));
-                let tableHTML = `<table class="db-table"><thead><tr><th>Ano</th><th>Corretivas</th><th>Custo Total</th></tr></thead><tbody>`;
-                querySnapshot.forEach(doc => {
-                    const kpis = doc.data().kpis;
-                    const totalCost = (kpis.custo_mensal || [0]).reduce((a,b)=>a+b,0);
-                    const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a,b)=>a+b,0);
-                    tableHTML += `<tr><td>${doc.id}</td><td>${totalCorrectives}</td><td>R$ ${totalCost.toLocaleString('pt-BR')}</td></tr>`;
-                });
-                tableHTML += `</tbody></table>`;
-                container.innerHTML = tableHTML;
-            } catch (error) {
-                container.innerHTML = `<p class="text-red-500">Erro ao carregar dados: ${error.message}</p>`;
+    const setButtonsState = (enabled) => {
+         const btnEdit = document.getElementById('btn-edit');
+         const btnSettings = document.getElementById('btn-settings');
+         isDataLoaded = enabled;
+         [btnEdit, btnSettings].forEach(btn => {
+             if (btn) {
+                 btn.disabled = !enabled;
+                 enabled ? btn.classList.remove('btn-disabled') : btn.classList.add('btn-disabled');
+             }
+         });
+    };
+
+    const showNoDataMessage = (show) => {
+        document.getElementById('kpi-grids-container').style.display = show ? 'none' : 'block';
+        document.getElementById('no-data-message').style.display = show ? 'block' : 'none';
+    };
+    
+    function startClockAndGreeting() {
+        const update = () => {
+            const now = new Date();
+            const hour = now.getHours();
+            const greetingEl = document.getElementById('login-greeting');
+            const clockEl = document.getElementById('login-clock');
+            if (greetingEl) {
+                if (hour >= 5 && hour < 12) greetingEl.textContent = 'Bom Dia';
+                else if (hour >= 12 && hour < 18) greetingEl.textContent = 'Boa Tarde';
+                else greetingEl.textContent = 'Boa Noite';
             }
+            if (clockEl) clockEl.textContent = now.toLocaleTimeString('pt-BR');
+        };
+        update();
+        if (clockInterval) clearInterval(clockInterval);
+        clockInterval = setInterval(update, 1000);
+    }
+
+    let listenersAttached = false;
+    function setupDashboardEventListeners() {
+        if (listenersAttached) return;
+        
+        document.getElementById('btn-logout').addEventListener('click', () => {
+            if(isTestMode) { window.location.reload(); } else { signOut(auth); }
+        });
+        document.getElementById('btn-settings').addEventListener('click', () => isDataLoaded && showSettingsModal());
+        document.getElementById('btn-db').addEventListener('click', showDatabaseModal);
+        document.getElementById('btn-refresh').addEventListener('click', () => { if(isDataLoaded) listenToYearData(document.getElementById('year-select').value); });
+        document.getElementById('btn-help').addEventListener('click', () => showModal('helpModal'));
+        document.getElementById('btn-edit').addEventListener('click', () => isDataLoaded && showEditModal());
+        document.getElementById('btn-add-year').addEventListener('click', () => showModal('addYearModal'));
+        document.getElementById('btn-add-first-year').addEventListener('click', () => showModal('addYearModal'));
+        document.getElementById('year-select').addEventListener('change', (e) => listenToYearData(e.target.value));
+        document.getElementById('btn-compare-years').addEventListener('click', showCompareModal);
+        document.getElementById('btn-generate-comparison').addEventListener('click', generateComparisonChart);
+        
+        document.querySelectorAll('.btn-close-modal').forEach(btn => { btn.addEventListener('click', () => closeModal(btn.dataset.modalId)); });
+        
+        document.getElementById('add-year-form').addEventListener('submit', saveNewYearData);
+        document.getElementById('edit-form').addEventListener('submit', saveEditedData);
+        document.getElementById('settings-form').addEventListener('submit', saveSettings);
+        
+        listenersAttached = true;
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('login-form').addEventListener('submit', handleLogin);
+        document.getElementById('btn-show-test-info').addEventListener('click', () => {
+            document.getElementById('test-credentials').classList.toggle('hidden');
+            lucide.createIcons();
+        });
+        document.getElementById('btn-test-mode').addEventListener('click', enterTestMode);
+        initializeFirebase();
+    });
+
+    // --- Funções com lógica para MODO DE TESTE ---
+    
+    async function saveNewYearData(e) {
+        e.preventDefault();
+        const year = document.getElementById('add-year-input').value;
+        if (!year) { alert("O ano é obrigatório."); return; }
+
+        const getMonthlyValues = (selector) => Array.from(document.querySelectorAll(selector)).map(input => parseFloat(input.value) || 0);
+        
+        const newData = {
+            kpis: {
+                preventivas: parseInt(document.getElementById('add-preventivas').value, 10),
+                preventivasVencer: parseInt(document.getElementById('add-preventivas-vencer').value, 10),
+                preditivas: parseInt(document.getElementById('add-preditivas').value, 10),
+                melhorias: parseInt(document.getElementById('add-melhorias').value, 10),
+                equipamentos: parseInt(document.getElementById('add-equipamentos').value, 10),
+                osCadastradas: parseInt(document.getElementById('add-os-cadastradas').value, 10),
+                disponibilidade: parseFloat(document.getElementById('add-disponibilidade').value),
+                custo_mensal: getMonthlyValues('.add-custo-mensal'),
+                corretivas_mensal: getMonthlyValues('.add-corretivas-mensal')
+            },
+            charts: {
+                mttr: document.getElementById('add-chart-mttr').value.split(',').map(s => Number(s.trim())),
+                mtbf: document.getElementById('add-chart-mtbf').value.split(',').map(s => Number(s.trim()))
+            },
+            targets: { mttr: 0, mtbf: 0, disponibilidade: 95 }
+        };
+
+        if (isTestMode) {
+            mockData[year] = newData;
+            alert(`(Modo Teste) Ano ${year} adicionado. A informação será perdida ao recarregar.`);
+            closeModal('addYearModal');
+            initializeDashboard(); // Re-inicializa para carregar o novo ano
+            return;
         }
 
-        async function showCompareModal() {
-            showModal('compareYearsModal');
-            const container = document.getElementById('compare-years-selection');
-            container.innerHTML = '<div class="loader mx-auto"></div>';
-            try {
-                const querySnapshot = await getDocs(collection(db, "maintenance_data"));
-                const years = querySnapshot.docs.map(doc => doc.id).sort((a, b) => b - a);
-                container.innerHTML = years.map(year => `<div class="flex items-center"><input id="year-${year}" type="checkbox" value="${year}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><label for="year-${year}" class="ml-2 block text-sm text-gray-900">${year}</label></div>`).join('');
-            } catch (error) {
-                container.innerHTML = '<p class="text-red-500">Erro ao carregar anos.</p>';
-            }
+        try {
+            await setDoc(doc(db, "maintenance_data", year), newData);
+            alert(`Ano ${year} adicionado com sucesso!`);
+            closeModal('addYearModal');
+            initializeDashboard();
+        } catch (error) {
+            alert(`Erro ao salvar: ${error.message}`);
+        }
+    }
+
+    async function saveEditedData(e) {
+        e.preventDefault();
+        const year = document.getElementById('year-select').value;
+        const getMonthlyValues = (selector) => Array.from(document.querySelectorAll(selector)).map(input => parseFloat(input.value) || 0);
+
+        const updatedKpis = {
+             preventivas: parseInt(document.getElementById('edit-preventivas').value, 10),
+             preventivasVencer: parseInt(document.getElementById('edit-preventivas-vencer').value, 10),
+             preditivas: parseInt(document.getElementById('edit-preditivas').value, 10),
+             melhorias: parseInt(document.getElementById('edit-melhorias').value, 10),
+             equipamentos: parseInt(document.getElementById('edit-equipamentos').value, 10),
+             osCadastradas: parseInt(document.getElementById('edit-os-cadastradas').value, 10),
+             disponibilidade: parseFloat(document.getElementById('edit-disponibilidade').value),
+             custo_mensal: getMonthlyValues('.edit-custo-mensal'),
+             corretivas_mensal: getMonthlyValues('.edit-corretivas-mensal'),
+        };
+        const updatedCharts = {
+            mttr: document.getElementById('edit-chart-mttr').value.split(',').map(s => Number(s.trim())),
+            mtbf: document.getElementById('edit-chart-mtbf').value.split(',').map(s => Number(s.trim())),
+        };
+
+        if(isTestMode) {
+            mockData[year].kpis = updatedKpis;
+            mockData[year].charts = updatedCharts;
+            alert('(Modo Teste) Dados atualizados com sucesso!');
+            closeModal('editDataModal');
+            listenToYearData(year); // Recarrega os dados do ano atual
+            return;
         }
 
-        async function generateComparisonChart() {
-            const selectedYears = Array.from(document.querySelectorAll('#compare-years-selection input:checked')).map(el => el.value);
-            if (selectedYears.length < 2) { alert("Selecione pelo menos dois anos."); return; }
+        const dataToUpdate = { "kpis": updatedKpis, "charts": updatedCharts };
+        try {
+            await updateDoc(doc(db, "maintenance_data", year), dataToUpdate);
+            alert('Dados atualizados com sucesso!');
+            closeModal('editDataModal');
+        } catch (error) {
+            alert(`Erro ao atualizar: ${error.message}`);
+        }
+    }
 
-            const chartData = { labels: ['Custo Total (R$)', 'Nº Corretivas', 'Disponibilidade (%)'], datasets: [] };
-            const colors = ['rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)', 'rgba(255, 99, 132, 0.7)'];
+    async function saveSettings(e) {
+        e.preventDefault();
+        const year = document.getElementById('year-select').value;
+        const userName = document.getElementById('settings-user-name').value;
+        
+        const updatedTargets = {
+            mttr: parseFloat(document.getElementById('settings-mttr-target').value),
+            mtbf: parseFloat(document.getElementById('settings-mtbf-target').value),
+            disponibilidade: parseFloat(document.getElementById('settings-disponibilidade-target').value)
+        };
+
+        if (isTestMode) {
+            mockData[year].targets = updatedTargets;
+            currentUserData.name = userName;
+            startHeaderUpdates();
+            alert('(Modo Teste) Configurações salvas com sucesso!');
+            closeModal('settingsModal');
+            listenToYearData(year); // Recarrega para mostrar a nova meta nos gráficos
+            return;
+        }
+        
+        try {
+            await updateDoc(doc(db, "maintenance_data", year), { targets: updatedTargets });
+            const userRef = doc(db, "users", auth.currentUser.uid);
+            await setDoc(userRef, { name: userName }, { merge: true });
             
-            const docs = await Promise.all(selectedYears.map(year => getDoc(doc(db, "maintenance_data", year))));
+            currentUserData.name = userName;
+            startHeaderUpdates();
             
-            docs.forEach((docSnap, index) => {
-                if (docSnap.exists()) {
-                    const kpis = docSnap.data().kpis;
-                    const totalCost = (kpis.custo_mensal || [0]).reduce((a, b) => a + b, 0);
-                    const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a, b) => a + b, 0);
-                    chartData.datasets.push({ label: docSnap.id, data: [totalCost, totalCorrectives, kpis.disponibilidade], backgroundColor: colors[index % colors.length] });
+            alert('Configurações salvas com sucesso!');
+            closeModal('settingsModal');
+        } catch (error) {
+            alert(`Erro ao salvar as configurações: ${error.message}`);
+        }
+    }
+    
+    async function showDatabaseModal() {
+        showModal('dbModal');
+        const container = document.getElementById('db-table-container');
+        container.innerHTML = '<div class="loader mx-auto"></div>';
+        let tableHTML = `<table class="db-table"><thead><tr><th>Ano</th><th>Corretivas</th><th>Custo Total</th></tr></thead><tbody>`;
+        
+        if (isTestMode) {
+            Object.keys(mockData).forEach(year => {
+                const kpis = mockData[year].kpis;
+                const totalCost = (kpis.custo_mensal || [0]).reduce((a,b)=>a+b,0);
+                const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a,b)=>a+b,0);
+                tableHTML += `<tr><td>${year}</td><td>${totalCorrectives}</td><td>R$ ${totalCost.toLocaleString('pt-BR')}</td></tr>`;
+            });
+            tableHTML += `</tbody></table>`;
+            container.innerHTML = tableHTML;
+            return;
+        }
+
+        try {
+            const querySnapshot = await getDocs(collection(db, "maintenance_data"));
+            querySnapshot.forEach(doc => {
+                const kpis = doc.data().kpis;
+                const totalCost = (kpis.custo_mensal || [0]).reduce((a,b)=>a+b,0);
+                const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a,b)=>a+b,0);
+                tableHTML += `<tr><td>${doc.id}</td><td>${totalCorrectives}</td><td>R$ ${totalCost.toLocaleString('pt-BR')}</td></tr>`;
+            });
+            tableHTML += `</tbody></table>`;
+            container.innerHTML = tableHTML;
+        } catch (error) {
+            container.innerHTML = `<p class="text-red-500">Erro ao carregar dados: ${error.message}</p>`;
+        }
+    }
+
+    async function showCompareModal() {
+        showModal('compareYearsModal');
+        const container = document.getElementById('compare-years-selection');
+        container.innerHTML = '<div class="loader mx-auto"></div>';
+        let years = [];
+
+        if (isTestMode) {
+            years = Object.keys(mockData).sort((a, b) => b - a);
+            container.innerHTML = years.map(year => `<div class="flex items-center"><input id="year-${year}" type="checkbox" value="${year}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><label for="year-${year}" class="ml-2 block text-sm text-gray-900">${year}</label></div>`).join('');
+            return;
+        }
+
+        try {
+            const querySnapshot = await getDocs(collection(db, "maintenance_data"));
+            years = querySnapshot.docs.map(doc => doc.id).sort((a, b) => b - a);
+            container.innerHTML = years.map(year => `<div class="flex items-center"><input id="year-${year}" type="checkbox" value="${year}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><label for="year-${year}" class="ml-2 block text-sm text-gray-900">${year}</label></div>`).join('');
+        } catch (error) {
+            container.innerHTML = '<p class="text-red-500">Erro ao carregar anos.</p>';
+        }
+    }
+    
+    async function generateComparisonChart() {
+        const selectedYears = Array.from(document.querySelectorAll('#compare-years-selection input:checked')).map(el => el.value);
+        if (selectedYears.length < 2) { alert("Selecione pelo menos dois anos."); return; }
+
+        const chartData = { labels: ['Custo Total (R$)', 'Nº Corretivas', 'Disponibilidade (%)'], datasets: [] };
+        const colors = ['rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)', 'rgba(255, 99, 132, 0.7)'];
+        
+        if (isTestMode) {
+            selectedYears.forEach((year, index) => {
+                const data = mockData[year];
+                if(data) {
+                   const kpis = data.kpis;
+                   const totalCost = (kpis.custo_mensal || [0]).reduce((a, b) => a + b, 0);
+                   const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a, b) => a + b, 0);
+                   chartData.datasets.push({ label: year, data: [totalCost, totalCorrectives, kpis.disponibilidade], backgroundColor: colors[index % colors.length] });
                 }
             });
             updateChart('comparisonChart', chartData.labels, null, null, 'bar', {}, null, null, chartData);
+            return;
         }
 
-        async function saveNewYearData(e) {
-            e.preventDefault();
-            const year = document.getElementById('add-year-input').value;
-            if (!year) { alert("O ano é obrigatório."); return; }
-
-            const getMonthlyValues = (selector) => Array.from(document.querySelectorAll(selector)).map(input => parseFloat(input.value) || 0);
-            
-            const newData = {
-                kpis: {
-                    preventivas: parseInt(document.getElementById('add-preventivas').value, 10),
-                    preventivasVencer: parseInt(document.getElementById('add-preventivas-vencer').value, 10),
-                    preditivas: parseInt(document.getElementById('add-preditivas').value, 10),
-                    melhorias: parseInt(document.getElementById('add-melhorias').value, 10),
-                    equipamentos: parseInt(document.getElementById('add-equipamentos').value, 10),
-                    osCadastradas: parseInt(document.getElementById('add-os-cadastradas').value, 10),
-                    disponibilidade: parseFloat(document.getElementById('add-disponibilidade').value),
-                    custo_mensal: getMonthlyValues('.add-custo-mensal'),
-                    corretivas_mensal: getMonthlyValues('.add-corretivas-mensal')
-                },
-                charts: {
-                    mttr: document.getElementById('add-chart-mttr').value.split(',').map(s => Number(s.trim())),
-                    mtbf: document.getElementById('add-chart-mtbf').value.split(',').map(s => Number(s.trim()))
-                },
-                targets: { mttr: 0, mtbf: 0, disponibilidade: 95 }
-            };
-
-            try {
-                await setDoc(doc(db, "maintenance_data", year), newData);
-                alert(`Ano ${year} adicionado com sucesso!`);
-                closeModal('addYearModal');
-                initializeDashboard();
-            } catch (error) {
-                alert(`Erro ao salvar: ${error.message}`);
+        const docs = await Promise.all(selectedYears.map(year => getDoc(doc(db, "maintenance_data", year))));
+        docs.forEach((docSnap, index) => {
+            if (docSnap.exists()) {
+                const kpis = docSnap.data().kpis;
+                const totalCost = (kpis.custo_mensal || [0]).reduce((a, b) => a + b, 0);
+                const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a, b) => a + b, 0);
+                chartData.datasets.push({ label: docSnap.id, data: [totalCost, totalCorrectives, kpis.disponibilidade], backgroundColor: colors[index % colors.length] });
             }
-        }
+        });
+        updateChart('comparisonChart', chartData.labels, null, null, 'bar', {}, null, null, chartData);
+    }
 
-        async function saveEditedData(e) {
-            e.preventDefault();
-            const year = document.getElementById('year-select').value;
-            const getMonthlyValues = (selector) => Array.from(document.querySelectorAll(selector)).map(input => parseFloat(input.value) || 0);
-
-            const updatedData = {
-                "kpis.preventivas": parseInt(document.getElementById('edit-preventivas').value, 10),
-                "kpis.preventivasVencer": parseInt(document.getElementById('edit-preventivas-vencer').value, 10),
-                "kpis.preditivas": parseInt(document.getElementById('edit-preditivas').value, 10),
-                "kpis.melhorias": parseInt(document.getElementById('edit-melhorias').value, 10),
-                "kpis.equipamentos": parseInt(document.getElementById('edit-equipamentos').value, 10),
-                "kpis.osCadastradas": parseInt(document.getElementById('edit-os-cadastradas').value, 10),
-                "kpis.disponibilidade": parseFloat(document.getElementById('edit-disponibilidade').value),
-                "kpis.custo_mensal": getMonthlyValues('.edit-custo-mensal'),
-                "kpis.corretivas_mensal": getMonthlyValues('.edit-corretivas-mensal'),
-                "charts.mttr": document.getElementById('edit-chart-mttr').value.split(',').map(s => Number(s.trim())),
-                "charts.mtbf": document.getElementById('edit-chart-mtbf').value.split(',').map(s => Number(s.trim()))
-            };
-
-            try {
-                await updateDoc(doc(db, "maintenance_data", year), updatedData);
-                alert('Dados atualizados com sucesso!');
-                closeModal('editDataModal');
-            } catch (error) {
-                alert(`Erro ao atualizar: ${error.message}`);
-            }
-        }
-
-        async function saveSettings(e) {
-            e.preventDefault();
-            const year = document.getElementById('year-select').value;
-            const userName = document.getElementById('settings-user-name').value;
-            
-            const updatedTargets = {
-                targets: {
-                    mttr: parseFloat(document.getElementById('settings-mttr-target').value),
-                    mtbf: parseFloat(document.getElementById('settings-mtbf-target').value),
-                    disponibilidade: parseFloat(document.getElementById('settings-disponibilidade-target').value)
-                }
-            };
-            
-            try {
-                // Salvar metas do ano
-                await updateDoc(doc(db, "maintenance_data", year), updatedTargets);
-
-                // Salvar nome do usuário
-                const userRef = doc(db, "users", auth.currentUser.uid);
-                await setDoc(userRef, { name: userName }, { merge: true });
-                currentUserData.name = userName; // Atualiza localmente
-                startHeaderUpdates(); // Re-renderiza o cabeçalho
-                
-                alert('Configurações salvas com sucesso!');
-                closeModal('settingsModal');
-            } catch (error) {
-                alert(`Erro ao salvar as configurações: ${error.message}`);
-            }
-        }
+    function showEditModal() {
+        const year = document.getElementById('year-select').value;
+        document.getElementById('edit-year-title').textContent = year;
+        const kpis = currentYearData.kpis;
         
-        const centerTextPlugin = {
-            id: 'centerText',
-            afterDraw: (chart) => {
-                if (chart.canvas.id !== 'availabilityChart') return;
-                const ctx = chart.ctx;
-                const { width, height } = chart;
-                const value = chart.data.datasets[0].data[0];
-                const text = value.toFixed(1) + '%';
-                
-                ctx.restore();
-                const fontSize = (height / 120).toFixed(2);
-                ctx.font = `bold ${fontSize}em Inter, sans-serif`;
-                ctx.fillStyle = '#1f2937';
-                ctx.textBaseline = 'middle';
-                
-                const textX = Math.round((width - ctx.measureText(text).width) / 2);
-                const textY = height / 2 + (height / 8);
-                
-                ctx.fillText(text, textX, textY);
-                ctx.save();
-            }
+        document.getElementById('edit-preventivas').value = kpis.preventivas;
+        document.getElementById('edit-preventivas-vencer').value = kpis.preventivasVencer;
+        document.getElementById('edit-preditivas').value = kpis.preditivas;
+        document.getElementById('edit-melhorias').value = kpis.melhorias;
+        document.getElementById('edit-equipamentos').value = kpis.equipamentos;
+        document.getElementById('edit-os-cadastradas').value = kpis.osCadastradas;
+        document.getElementById('edit-disponibilidade').value = kpis.disponibilidade;
+
+        const createMonthlyInputs = (containerId, values, prefix, type = "number", step = "1") => {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+            const currentValues = values && values.length === 12 ? values : Array(12).fill(0);
+            currentValues.forEach((value, index) => {
+                container.innerHTML += `<input type="${type}" step="${step}" placeholder="${months[index]}" class="form-input form-input-small ${prefix}-mensal" value="${value}" required>`;
+            });
         };
-        Chart.register(centerTextPlugin);
+        createMonthlyInputs('edit-custos-mensais-container', kpis.custo_mensal, 'edit-custo', 'number', '0.01');
+        createMonthlyInputs('edit-corretivas-mensais-container', kpis.corretivas_mensal, 'edit-corretivas');
+        
+        document.getElementById('edit-chart-mttr').value = currentYearData.charts.mttr.join(', ');
+        document.getElementById('edit-chart-mtbf').value = currentYearData.charts.mtbf.join(', ');
 
-        function updateChart(chartId, labels, data, label, type = 'bar', scaleOptions = {}, target = null, targetType = null, fullData = null) {
-            const ctx = document.getElementById(chartId)?.getContext('2d');
-            if (!ctx) return;
-            if (charts[chartId]) { charts[chartId].destroy(); }
+        showModal('editDataModal');
+    }
 
-            let chartConfig;
+    function showSettingsModal() {
+        const year = document.getElementById('year-select').value;
+        document.getElementById('settings-year-title').textContent = year;
+        document.getElementById('settings-user-name').value = currentUserData.name || '';
+        
+        const targets = currentYearData.targets || {};
+        document.getElementById('settings-mttr-target').value = targets.mttr || 0;
+        document.getElementById('settings-mtbf-target').value = targets.mtbf || 0;
+        document.getElementById('settings-disponibilidade-target').value = targets.disponibilidade || 95;
+        showModal('settingsModal');
+    }
 
-            if (chartId === 'availabilityChart') {
-                const value = data[0];
-                let color = '#ff9f40'; // Laranja
-                if ((targetType === 'higher' && value >= target) || (targetType === 'lower' && value <= target)) {
-                    color = '#4bc0c0'; // Verde-água
-                }
-                
-                chartConfig = {
-                    type: 'doughnut',
-                    data: {
-                        labels: labels,
-                        datasets: [{ data: data, backgroundColor: [color, '#e5e7eb'], borderWidth: 0, cutout: '70%' }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        circumference: 180, rotation: -90,
-                        plugins: { legend: { display: false }, tooltip: { enabled: false } }
-                    }
-                };
-            } else {
-                chartConfig = {
-                    type: type,
-                    data: fullData ? fullData : {
-                        labels: labels,
-                        datasets: [{
-                            label: label, data: data,
-                            backgroundColor: (context) => {
-                                if (!target || !targetType || type==='line') return type === 'line' ? 'transparent' : '#4bc0c0';
-                                const value = context.raw;
-                                if ((targetType === 'higher' && value >= target) || (targetType === 'lower' && value <= target)) return '#4bc0c0';
-                                return '#ff9f40';
-                            },
-                            borderColor: '#4bc0c0',
-                            borderWidth: 2,
-                            pointBackgroundColor: '#4bc0c0',
-                            tension: 0.1,
-                            fill: type === 'line' ? false : true,
-                        }]
-                    },
-                    options: {
-                        responsive: true, maintainAspectRatio: false,
-                        scales: { y: { beginAtZero: true, ...scaleOptions } },
-                        plugins: {
-                            annotation: { annotations: {} },
-                            legend: { display: !!fullData }
-                        }
-                    }
-                };
-                
-                if (target && targetType && !fullData && type !== 'doughnut') {
-                    chartConfig.options.plugins.annotation.annotations.targetLine = {
-                        type: 'line', yMin: target, yMax: target,
-                        borderColor: '#ff6384',
-                        borderWidth: 2, borderDash: [6, 6],
-                        label: { content: `Meta`, enabled: true, position: 'end', yAdjust: -10, backgroundColor: 'rgba(255, 99, 132, 0.7)'}
-                    };
-                }
+    const centerTextPlugin = {
+        id: 'centerText',
+        afterDraw: (chart) => {
+            if (chart.canvas.id !== 'availabilityChart') return;
+            const ctx = chart.ctx;
+            const { width, height } = chart;
+            const value = chart.data.datasets[0].data[0];
+            const text = value.toFixed(1) + '%';
+            
+            ctx.restore();
+            const fontSize = (height / 120).toFixed(2);
+            ctx.font = `bold ${fontSize}em Inter, sans-serif`;
+            ctx.fillStyle = '#1f2937';
+            ctx.textBaseline = 'middle';
+            
+            const textX = Math.round((width - ctx.measureText(text).width) / 2);
+            const textY = height / 2 + (height / 8);
+            
+            ctx.fillText(text, textX, textY);
+            ctx.save();
+        }
+    };
+    Chart.register(centerTextPlugin);
+
+    function updateChart(chartId, labels, data, label, type = 'bar', scaleOptions = {}, target = null, targetType = null, fullData = null) {
+        const ctx = document.getElementById(chartId)?.getContext('2d');
+        if (!ctx) return;
+        if (charts[chartId]) { charts[chartId].destroy(); }
+
+        let chartConfig;
+
+        if (chartId === 'availabilityChart') {
+            const value = data[0];
+            let color = '#ff9f40'; // Laranja
+            if ((targetType === 'higher' && value >= target) || (targetType === 'lower' && value <= target)) {
+                color = '#4bc0c0'; // Verde-água
             }
-
-            charts[chartId] = new Chart(ctx, chartConfig);
+            
+            chartConfig = {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{ data: data, backgroundColor: [color, '#e5e7eb'], borderWidth: 0, cutout: '70%' }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    circumference: 180, rotation: -90,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } }
+                }
+            };
+        } else {
+            chartConfig = {
+                type: type,
+                data: fullData ? fullData : {
+                    labels: labels,
+                    datasets: [{
+                        label: label, data: data,
+                        backgroundColor: (context) => {
+                            if (!target || !targetType || type==='line') return type === 'line' ? 'transparent' : '#4bc0c0';
+                            const value = context.raw;
+                            if ((targetType === 'higher' && value >= target) || (targetType === 'lower' && value <= target)) return '#4bc0c0';
+                            return '#ff9f40';
+                        },
+                        borderColor: '#4bc0c0',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#4bc0c0',
+                        tension: 0.1,
+                        fill: type === 'line' ? false : true,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, ...scaleOptions } },
+                    plugins: {
+                        annotation: { annotations: {} },
+                        legend: { display: !!fullData }
+                    }
+                }
+            };
+            
+            if (target && targetType && !fullData && type !== 'doughnut') {
+                chartConfig.options.plugins.annotation.annotations.targetLine = {
+                    type: 'line', yMin: target, yMax: target,
+                    borderColor: '#ff6384',
+                    borderWidth: 2, borderDash: [6, 6],
+                    label: { content: `Meta`, enabled: true, position: 'end', yAdjust: -10, backgroundColor: 'rgba(255, 99, 132, 0.7)'}
+                };
+            }
         }
 
-    </script>
+        charts[chartId] = new Chart(ctx, chartConfig);
+    }
 
+</script>
 </body>
 </html>
