@@ -27,6 +27,16 @@
         .db-table th { background-color: #f9fafb; font-weight: 600; }
         .copy-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 4px; border-radius: 4px; transition: background-color 0.2s; }
         .copy-btn:hover { background-color: #e5e7eb; }
+        
+        /* Estilos para o Tour Interativo */
+        .tour-highlight {
+            position: relative;
+            z-index: 100;
+            transition: all 0.3s ease-in-out;
+            border-radius: 0.5rem;
+            outline: 4px solid #facc15; /* Amarelo Tailwind */
+            box-shadow: 0 0 20px rgba(250, 204, 21, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -70,10 +80,11 @@
                     <div class="flex flex-col items-center space-y-8 mt-8 flex-grow">
                         <button id="btn-settings" class="p-3 rounded-lg sidebar-icon btn-disabled" title="Configurações" disabled><i data-lucide="settings"></i></button>
                         <button id="btn-refresh" class="p-3 rounded-lg sidebar-icon" title="Atualizar"><i data-lucide="refresh-cw"></i></button>
-                        <button class="p-3 rounded-lg sidebar-icon bg-white text-[#3b4483] rounded-xl" title="Início"><i data-lucide="home"></i></button>
+                        <button id="btn-home" class="p-3 rounded-lg sidebar-icon bg-white text-[#3b4483] rounded-xl" title="Início"><i data-lucide="home"></i></button>
                         <button id="btn-db" class="p-3 rounded-lg sidebar-icon" title="Base de Dados"><i data-lucide="database"></i></button>
                     </div>
                     <div class="flex flex-col items-center space-y-4">
+                        <button id="btn-start-tour" class="p-3 rounded-lg sidebar-icon" title="Iniciar Tour"><i data-lucide="play-circle"></i></button>
                         <button id="btn-help" class="p-3 rounded-lg sidebar-icon" title="Ajuda"><i data-lucide="help-circle"></i></button>
                     </div>
                 </aside>
@@ -84,11 +95,11 @@
                     <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 z-50 flex items-center justify-center hidden"><div class="loader"></div></div>
                     
                     <header class="bg-[#4a55a2] text-white p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div class="text-center md:text-left">
+                        <div id="header-info" class="text-center md:text-left">
                             <h1 class="text-xl font-bold" id="header-greeting"></h1>
                             <p class="text-sm text-indigo-200" id="header-datetime"></p>
                         </div>
-                        <div class="flex items-center gap-2 flex-wrap justify-center md:justify-end">
+                        <div id="header-buttons" class="flex items-center gap-2 flex-wrap justify-center md:justify-end">
                              <button id="btn-compare-years" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition flex items-center gap-2"><i data-lucide="bar-chart-3"></i>Comparar</button>
                             <button id="btn-edit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 btn-disabled" disabled><i data-lucide="edit"></i>Editar</button>
                             <button id="btn-add-year" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition flex items-center gap-2"><i data-lucide="plus-circle"></i>Adicionar</button>
@@ -105,7 +116,7 @@
                         <div id="kpi-grids-container" class="hidden">
                             <div class="flex justify-between items-center mb-6">
                                 <h2 class="text-2xl font-bold text-white">VISÃO GERAL DO PAINEL</h2>
-                                <div class="flex items-center space-x-2">
+                                <div id="year-selector-container" class="flex items-center space-x-2">
                                     <label for="year-select" class="text-white">Escolha o ano:</label>
                                     <select id="year-select" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"></select>
                                 </div>
@@ -122,7 +133,7 @@
                                 <div class="card"><h3 class="text-gray-500 font-medium">O.S Cadastradas</h3><div class="flex items-center justify-between mt-2"><i data-lucide="clipboard-list" class="w-12 h-12 text-green-500"></i><p id="kpi-os-cadastradas" class="text-5xl font-bold">0</p></div></div>
                                 <div class="card bg-green-500 text-white"><h3 class="font-medium">Custo Total</h3><p id="kpi-custo-total" class="text-4xl font-bold mt-2">R$ 0,00</p></div>
                             </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div id="charts-row-1" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                 <div class="card"><h3 class="text-gray-500 font-medium mb-4">MTTR Trimestral</h3><div class="h-64"><canvas id="mttrChart"></canvas></div><div class="mt-4 text-center"><p id="mttr-target" class="text-gray-500">Target: 0</p></div></div>
                                 <div class="card"><h3 class="text-gray-500 font-medium mb-4">MTBF Mensal</h3><div class="h-64"><canvas id="mtbfChart"></canvas></div><div class="mt-4 text-center"><p id="mtbf-target" class="text-gray-500">Target: 0</p></div></div>
                                 <div class="card"><h3 class="text-gray-500 font-medium mb-4">DISPONIBILIDADE</h3><div class="h-64 relative"><canvas id="availabilityChart"></canvas></div><div class="mt-4 text-center"><p id="disponibilidade-target" class="text-gray-500">Target: 0%</p></div></div>
@@ -134,6 +145,21 @@
                         </div>
                     </div>
                 </main>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ELEMENTOS DO TOUR -->
+    <div id="tour-tooltip-container" class="hidden fixed inset-0 z-[99] pointer-events-none">
+        <div id="tour-tooltip" class="absolute bg-white text-gray-800 p-4 rounded-lg shadow-xl w-80 transition-all duration-300 ease-in-out pointer-events-auto">
+            <h3 id="tour-title" class="text-lg font-bold mb-2"></h3>
+            <p id="tour-description" class="text-sm"></p>
+            <div class="flex justify-between items-center mt-4">
+                <button id="tour-skip" class="text-sm text-gray-500 hover:text-gray-800">Pular Tour</button>
+                <div>
+                    <button id="tour-prev" class="bg-gray-300 px-3 py-1 rounded-md text-sm mr-2 hover:bg-gray-400">Anterior</button>
+                    <button id="tour-next" class="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700">Próximo</button>
+                </div>
             </div>
         </div>
     </div>
@@ -215,7 +241,12 @@
             currentUserData = { name: 'Usuário Teste' };
             startHeaderUpdates();
             setupDashboardEventListeners();
-            initializeDashboard();
+            initializeDashboard().then(() => {
+                // Inicia o tour se não tiver sido completado antes
+                if (!localStorage.getItem('tourCompleted')) {
+                    startTour();
+                }
+            });
         }
 
         function initializeFirebase() {
@@ -224,14 +255,20 @@
              db = getFirestore(app);
              
              onAuthStateChanged(auth, user => {
-                if (isTestMode) return; // Não fazer nada se estiver em modo de teste
+                if (isTestMode) return;
                 if (user) {
                     loginScreen.classList.add('hidden');
                     dashboardContainer.classList.remove('hidden');
                     if (clockInterval) clearInterval(clockInterval);
-                    loadUserData(user);
-                    setupDashboardEventListeners();
-                    initializeDashboard();
+                    loadUserData(user).then(() => {
+                        setupDashboardEventListeners();
+                        initializeDashboard().then(() => {
+                            // Inicia o tour se não tiver sido completado antes
+                            if (!localStorage.getItem('tourCompleted')) {
+                                startTour();
+                            }
+                        });
+                    });
                 } else {
                     dashboardContainer.classList.add('hidden');
                     loginScreen.classList.remove('hidden');
@@ -293,7 +330,7 @@
                 } else {
                     showNoDataMessage(false);
                     yearSelector.innerHTML = years.map(year => `<option value="${year}">${year}</option>`).join('');
-                    listenToYearData(years[0]); // Pega o ano mais recente
+                    listenToYearData(years[0]);
                 }
                 loadingOverlay.classList.add('hidden');
                 return;
@@ -430,6 +467,7 @@
             document.getElementById('btn-db').addEventListener('click', showDatabaseModal);
             document.getElementById('btn-refresh').addEventListener('click', () => { if(isDataLoaded) listenToYearData(document.getElementById('year-select').value); });
             document.getElementById('btn-help').addEventListener('click', () => showModal('helpModal'));
+            document.getElementById('btn-start-tour').addEventListener('click', startTour);
             document.getElementById('btn-edit').addEventListener('click', () => isDataLoaded && showEditModal());
             document.getElementById('btn-add-year').addEventListener('click', () => showModal('addYearModal'));
             document.getElementById('btn-add-first-year').addEventListener('click', () => showModal('addYearModal'));
@@ -455,6 +493,97 @@
             document.getElementById('btn-test-mode').addEventListener('click', enterTestMode);
             initializeFirebase();
         });
+
+        // --- LÓGICA DO TOUR ---
+
+        const tourSteps = [
+            { element: '#header-info', title: 'Boas-vindas!', description: 'Aqui você vê uma saudação, seu nome, a data e a hora atual.' , position: 'bottom' },
+            { element: '#header-buttons', title: 'Ações Principais', description: 'Use estes botões para Adicionar um novo ano, Editar o ano atual, Comparar dados entre anos ou Sair.' , position: 'bottom-left' },
+            { element: '.sidebar', title: 'Menu de Navegação', description: 'Acesse as Configurações, Base de Dados, ou atualize as informações por aqui.' , position: 'right' },
+            { element: '#year-selector-container', title: 'Seletor de Ano', description: 'Escolha o ano que deseja visualizar no painel.' , position: 'left' },
+            { element: '#kpi-grids-container .card:first-child', title: 'Cartões de KPI', description: 'Estes cartões mostram os principais indicadores de manutenção (KPIs) de forma rápida e visual.' , position: 'bottom' },
+            { element: '#charts-row-1', title: 'Gráficos de Performance', description: 'Acompanhe visualmente o MTTR, MTBF e a Disponibilidade para analisar a eficiência da sua equipe.' , position: 'top' },
+            { element: '#btn-settings', title: 'Configurações', description: 'Clique aqui para definir suas metas anuais e personalizar seu nome de usuário. Bom trabalho!' , position: 'right' }
+        ];
+
+        let currentStepIndex = 0;
+        let highlightedElement = null;
+
+        function showStep(index) {
+            if (highlightedElement) {
+                highlightedElement.classList.remove('tour-highlight');
+            }
+            if (index >= tourSteps.length) {
+                endTour();
+                return;
+            }
+
+            const step = tourSteps[index];
+            const targetElement = document.querySelector(step.element);
+            
+            if (!targetElement || targetElement.offsetParent === null) {
+                showStep(index + 1);
+                return;
+            }
+            
+            targetElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            highlightedElement = targetElement;
+            highlightedElement.classList.add('tour-highlight');
+            
+            const tooltip = document.getElementById('tour-tooltip');
+            document.getElementById('tour-title').textContent = step.title;
+            document.getElementById('tour-description').textContent = step.description;
+
+            const targetRect = targetElement.getBoundingClientRect();
+            
+            let top, left;
+            switch(step.position) {
+                case 'bottom': top = targetRect.bottom + 15; left = targetRect.left + (targetRect.width / 2) - (tooltip.offsetWidth / 2); break;
+                case 'bottom-left': top = targetRect.bottom + 15; left = targetRect.right - tooltip.offsetWidth; break;
+                case 'top': top = targetRect.top - tooltip.offsetHeight - 15; left = targetRect.left + (targetRect.width / 2) - (tooltip.offsetWidth / 2); break;
+                case 'left': top = targetRect.top + (targetRect.height / 2) - (tooltip.offsetHeight / 2); left = targetRect.left - tooltip.offsetWidth - 15; break;
+                case 'right': default: top = targetRect.top + (targetRect.height / 2) - (tooltip.offsetHeight / 2); left = targetRect.right + 15;
+            }
+            
+            if (left < 10) left = 10;
+            if ((left + tooltip.offsetWidth) > window.innerWidth) left = window.innerWidth - tooltip.offsetWidth - 10;
+            if (top < 10) top = 10;
+            if ((top + tooltip.offsetHeight) > window.innerHeight) top = window.innerHeight - tooltip.offsetHeight - 10;
+
+            tooltip.style.top = `${top}px`;
+            tooltip.style.left = `${left}px`;
+
+            document.getElementById('tour-prev').style.display = index === 0 ? 'none' : 'inline-block';
+            document.getElementById('tour-next').textContent = index === tourSteps.length - 1 ? 'Finalizar' : 'Próximo';
+        }
+
+        function startTour() {
+            currentStepIndex = 0;
+            document.getElementById('tour-tooltip-container').classList.remove('hidden');
+            showStep(currentStepIndex);
+        }
+
+        function endTour() {
+            if (highlightedElement) {
+                highlightedElement.classList.remove('tour-highlight');
+                highlightedElement = null;
+            }
+            document.getElementById('tour-tooltip-container').classList.add('hidden');
+            localStorage.setItem('tourCompleted', 'true');
+        }
+
+        document.getElementById('tour-next').addEventListener('click', () => {
+            currentStepIndex++;
+            showStep(currentStepIndex);
+        });
+        document.getElementById('tour-prev').addEventListener('click', () => {
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                showStep(currentStepIndex);
+            }
+        });
+        document.getElementById('tour-skip').addEventListener('click', endTour);
+
 
         // --- Funções com lógica para MODO DE TESTE ---
         
