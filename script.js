@@ -302,8 +302,8 @@ function setupDashboardEventListeners() {
     
     document.querySelectorAll('.btn-close-modal').forEach(btn => { btn.addEventListener('click', () => closeModal(btn.dataset.modalId)); });
     
-    document.getElementById('add-year-form').addEventListener('submit', saveNewYearData);
-    document.getElementById('edit-form').addEventListener('submit', saveEditedData);
+    document.getElementById('add-year-form').addEventListener('submit', (e) => saveYearData(e, true));
+    document.getElementById('edit-form').addEventListener('submit', (e) => saveYearData(e, false));
     document.getElementById('settings-form').addEventListener('submit', saveSettings);
     
     listenersAttached = true;
@@ -316,8 +316,40 @@ document.addEventListener('DOMContentLoaded', () => {
         lucide.createIcons();
     });
     document.getElementById('btn-test-mode').addEventListener('click', enterTestMode);
+    setupDarkMode();
     initializeFirebase();
 });
+
+// --- LÓGICA DO MODO ESCURO ---
+function setupDarkMode() {
+    const toggleBtn = document.getElementById('btn-toggle-dark-mode');
+    if (!toggleBtn) return;
+
+    const sunIcon = `<i data-lucide="sun" class="w-6 h-6"></i>`;
+    const moonIcon = `<i data-lucide="moon" class="w-6 h-6"></i>`;
+
+    const applyTheme = (isDark) => {
+        document.documentElement.classList.toggle('dark', isDark);
+        toggleBtn.innerHTML = isDark ? sunIcon : moonIcon;
+        lucide.createIcons();
+        
+        if (isDataLoaded) {
+            updateDashboardUI(currentYearData);
+        }
+    };
+
+    toggleBtn.addEventListener('click', () => {
+        const isDark = !document.documentElement.classList.contains('dark');
+        localStorage.setItem('darkMode', isDark);
+        applyTheme(isDark);
+    });
+
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const savedMode = localStorage.getItem('darkMode');
+    
+    applyTheme(savedMode === 'true' || (savedMode === null && prefersDark));
+}
+
 
 // --- LÓGICA DO TOUR ---
 
@@ -532,89 +564,79 @@ function exportToXLSX() {
     }
 }
 
-// --- Funções com lógica para MODO DE TESTE ---
+// --- Funções de salvamento de dados ---
 
-async function saveNewYearData(e) {
+async function saveYearData(e, isNew) {
     e.preventDefault();
-    const year = document.getElementById('add-year-input').value;
-    if (!year) { alert("O ano é obrigatório."); return; }
+    
+    const formPrefix = isNew ? 'add' : 'edit';
+    const year = isNew 
+        ? document.getElementById('add-year-input').value
+        : document.getElementById('year-select').value;
+
+    if (!year && isNew) { // Apenas requer o ano para novas entradas
+        alert("O ano é obrigatório.");
+        return;
+    }
 
     const getMonthlyValues = (selector) => Array.from(document.querySelectorAll(selector)).map(input => parseFloat(input.value) || 0);
-    
-    const newData = {
+
+    const dataToSave = {
         kpis: {
-            preventivas: parseInt(document.getElementById('add-preventivas').value, 10),
-            preventivasVencer: parseInt(document.getElementById('add-preventivas-vencer').value, 10),
-            preditivas: parseInt(document.getElementById('add-preditivas').value, 10),
-            melhorias: parseInt(document.getElementById('add-melhorias').value, 10),
-            equipamentos: parseInt(document.getElementById('add-equipamentos').value, 10),
-            osCadastradas: parseInt(document.getElementById('add-os-cadastradas').value, 10),
-            disponibilidade: parseFloat(document.getElementById('add-disponibilidade').value),
-            custo_mensal: getMonthlyValues('.add-custo-mensal'),
-            corretivas_mensal: getMonthlyValues('.add-corretivas-mensal')
+            preventivas: parseInt(document.getElementById(`${formPrefix}-preventivas`).value, 10),
+            preventivasVencer: parseInt(document.getElementById(`${formPrefix}-preventivas-vencer`).value, 10),
+            preditivas: parseInt(document.getElementById(`${formPrefix}-preditivas`).value, 10),
+            melhorias: parseInt(document.getElementById(`${formPrefix}-melhorias`).value, 10),
+            equipamentos: parseInt(document.getElementById(`${formPrefix}-equipamentos`).value, 10),
+            osCadastradas: parseInt(document.getElementById(`${formPrefix}-os-cadastradas`).value, 10),
+            disponibilidade: parseFloat(document.getElementById(`${formPrefix}-disponibilidade`).value),
+            custo_mensal: getMonthlyValues(`.${formPrefix}-custo-mensal`),
+            corretivas_mensal: getMonthlyValues(`.${formPrefix}-corretivas-mensal`)
         },
         charts: {
-            mttr: document.getElementById('add-chart-mttr').value.split(',').map(s => Number(s.trim())),
-            mtbf: document.getElementById('add-chart-mtbf').value.split(',').map(s => Number(s.trim()))
-        },
-        targets: { mttr: 0, mtbf: 0, disponibilidade: 95 }
+            mttr: document.getElementById(`${formPrefix}-chart-mttr`).value.split(',').map(s => Number(s.trim())),
+            mtbf: document.getElementById(`${formPrefix}-chart-mtbf`).value.split(',').map(s => Number(s.trim()))
+        }
     };
+
+    if (isNew) {
+        // Apenas anos novos recebem um objeto de metas padrão
+        dataToSave.targets = { mttr: 0, mtbf: 0, disponibilidade: 95 };
+    }
 
     if (isTestMode) {
-        mockData[year] = newData;
-        alert(`(Modo Teste) Ano ${year} adicionado. A informação será perdida ao recarregar.`);
-        closeModal('addYearModal');
-        initializeDashboard();
+        if (isNew) {
+            mockData[year] = dataToSave;
+            alert(`(Modo Teste) Ano ${year} adicionado. A informação será perdida ao recarregar.`);
+        } else {
+            mockData[year].kpis = dataToSave.kpis;
+            mockData[year].charts = dataToSave.charts;
+            alert('(Modo Teste) Dados atualizados com sucesso!');
+        }
+        closeModal(isNew ? 'addYearModal' : 'editDataModal');
+        if (isNew) {
+            initializeDashboard();
+        } else {
+            listenToYearData(year);
+        }
         return;
     }
 
     try {
-        await setDoc(doc(db, "maintenance_data", year), newData);
-        alert(`Ano ${year} adicionado com sucesso!`);
-        closeModal('addYearModal');
-        initializeDashboard();
+        const docRef = doc(db, "maintenance_data", year);
+        if (isNew) {
+            await setDoc(docRef, dataToSave);
+            alert(`Ano ${year} adicionado com sucesso!`);
+        } else {
+            await updateDoc(docRef, { kpis: dataToSave.kpis, charts: dataToSave.charts });
+            alert('Dados atualizados com sucesso!');
+        }
+        closeModal(isNew ? 'addYearModal' : 'editDataModal');
+        if (isNew) {
+            initializeDashboard();
+        }
     } catch (error) {
         alert(`Erro ao salvar: ${error.message}`);
-    }
-}
-
-async function saveEditedData(e) {
-    e.preventDefault();
-    const year = document.getElementById('year-select').value;
-    const getMonthlyValues = (selector) => Array.from(document.querySelectorAll(selector)).map(input => parseFloat(input.value) || 0);
-
-    const updatedKpis = {
-         preventivas: parseInt(document.getElementById('edit-preventivas').value, 10),
-         preventivasVencer: parseInt(document.getElementById('edit-preventivas-vencer').value, 10),
-         preditivas: parseInt(document.getElementById('edit-preditivas').value, 10),
-         melhorias: parseInt(document.getElementById('edit-melhorias').value, 10),
-         equipamentos: parseInt(document.getElementById('edit-equipamentos').value, 10),
-         osCadastradas: parseInt(document.getElementById('edit-os-cadastradas').value, 10),
-         disponibilidade: parseFloat(document.getElementById('edit-disponibilidade').value),
-         custo_mensal: getMonthlyValues('.edit-custo-mensal'),
-         corretivas_mensal: getMonthlyValues('.edit-corretivas-mensal'),
-    };
-    const updatedCharts = {
-        mttr: document.getElementById('edit-chart-mttr').value.split(',').map(s => Number(s.trim())),
-        mtbf: document.getElementById('edit-chart-mtbf').value.split(',').map(s => Number(s.trim())),
-    };
-
-    if(isTestMode) {
-        mockData[year].kpis = updatedKpis;
-        mockData[year].charts = updatedCharts;
-        alert('(Modo Teste) Dados atualizados com sucesso!');
-        closeModal('editDataModal');
-        listenToYearData(year);
-        return;
-    }
-
-    const dataToUpdate = { "kpis": updatedKpis, "charts": updatedCharts };
-    try {
-        await updateDoc(doc(db, "maintenance_data", year), dataToUpdate);
-        alert('Dados atualizados com sucesso!');
-        closeModal('editDataModal');
-    } catch (error) {
-        alert(`Erro ao atualizar: ${error.message}`);
     }
 }
 
@@ -695,14 +717,14 @@ async function showCompareModal() {
 
     if (isTestMode) {
         years = Object.keys(mockData).sort((a, b) => b - a);
-        container.innerHTML = years.map(year => `<div class="flex items-center"><input id="year-${year}" type="checkbox" value="${year}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><label for="year-${year}" class="ml-2 block text-sm text-gray-900">${year}</label></div>`).join('');
+        container.innerHTML = years.map(year => `<div class="flex items-center"><input id="year-${year}" type="checkbox" value="${year}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><label for="year-${year}" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">${year}</label></div>`).join('');
         return;
     }
 
     try {
         const querySnapshot = await getDocs(collection(db, "maintenance_data"));
         years = querySnapshot.docs.map(doc => doc.id).sort((a, b) => b - a);
-        container.innerHTML = years.map(year => `<div class="flex items-center"><input id="year-${year}" type="checkbox" value="${year}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><label for="year-${year}" class="ml-2 block text-sm text-gray-900">${year}</label></div>`).join('');
+        container.innerHTML = years.map(year => `<div class="flex items-center"><input id="year-${year}" type="checkbox" value="${year}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><label for="year-${year}" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">${year}</label></div>`).join('');
     } catch (error) {
         container.innerHTML = '<p class="text-red-500">Erro ao carregar anos.</p>';
     }
@@ -745,30 +767,36 @@ function showEditModal() {
     showModal('editDataModal');
     const year = document.getElementById('year-select').value;
     document.getElementById('edit-year-title').textContent = year;
-    const kpis = currentYearData.kpis;
-    
-    document.getElementById('edit-preventivas').value = kpis.preventivas;
-    document.getElementById('edit-preventivas-vencer').value = kpis.preventivasVencer;
-    document.getElementById('edit-preditivas').value = kpis.preditivas;
-    document.getElementById('edit-melhorias').value = kpis.melhorias;
-    document.getElementById('edit-equipamentos').value = kpis.equipamentos;
-    document.getElementById('edit-os-cadastradas').value = kpis.osCadastradas;
-    document.getElementById('edit-disponibilidade').value = kpis.disponibilidade;
+    const kpis = (currentYearData && currentYearData.kpis) ? currentYearData.kpis : {};
+    const charts = (currentYearData && currentYearData.charts) ? currentYearData.charts : { mttr: Array(3).fill(0), mtbf: Array(12).fill(0) };
+
+    document.getElementById('edit-preventivas').value = kpis.preventivas ?? 0;
+    document.getElementById('edit-preventivas-vencer').value = kpis.preventivasVencer ?? 0;
+    document.getElementById('edit-preditivas').value = kpis.preditivas ?? 0;
+    document.getElementById('edit-melhorias').value = kpis.melhorias ?? 0;
+    document.getElementById('edit-equipamentos').value = kpis.equipamentos ?? 0;
+    document.getElementById('edit-os-cadastradas').value = kpis.osCadastradas ?? 0;
+    document.getElementById('edit-disponibilidade').value = kpis.disponibilidade ?? 0;
 
     const createMonthlyInputs = (containerId, values, prefix, type = "number", step = "1") => {
         const container = document.getElementById(containerId);
         container.innerHTML = '';
         const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-        const currentValues = values && values.length === 12 ? values : Array(12).fill(0);
+        let currentValues = Array.isArray(values) && values.length === 12 ? values : Array(12).fill(0);
+        currentValues = currentValues.map(v => (typeof v === 'number' && !isNaN(v)) ? v : 0);
+        if (!currentValues.length || currentValues.every(v => v === 0)) {
+            container.innerHTML = '<span style="color: #888; font-size: 0.9em;">Preencha os valores mensais de O.S Corretivas</span>';
+        }
         currentValues.forEach((value, index) => {
-            container.innerHTML += `<input type="${type}" step="${step}" placeholder="${months[index]}" class="form-input form-input-small ${prefix}-mensal" value="${value}" required>`;
+            container.innerHTML += `<input type="${type}" step="${step}" placeholder="${months[index]}" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${prefix}-mensal" value="${value}" required>`;
         });
+        container.style.minHeight = '48px';
     };
     createMonthlyInputs('edit-custos-mensais-container', kpis.custo_mensal, 'edit-custo', 'number', '0.01');
     createMonthlyInputs('edit-corretivas-mensais-container', kpis.corretivas_mensal, 'edit-corretivas');
-    
-    document.getElementById('edit-chart-mttr').value = currentYearData.charts.mttr.join(', ');
-    document.getElementById('edit-chart-mtbf').value = currentYearData.charts.mtbf.join(', ');
+
+    document.getElementById('edit-chart-mttr').value = Array.isArray(charts.mttr) ? charts.mttr.join(', ') : '0, 0, 0';
+    document.getElementById('edit-chart-mtbf').value = Array.isArray(charts.mtbf) ? charts.mtbf.join(', ') : '0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0';
 }
 
 function showSettingsModal() {
@@ -794,8 +822,9 @@ const centerTextPlugin = {
         
         ctx.restore();
         const fontSize = (height / 120).toFixed(2);
+        const isDarkMode = document.documentElement.classList.contains('dark');
         ctx.font = `bold ${fontSize}em Inter, sans-serif`;
-        ctx.fillStyle = '#1f2937';
+        ctx.fillStyle = isDarkMode ? '#e5e7eb' : '#1f2937';
         ctx.textBaseline = 'middle';
         
         const textX = Math.round((width - ctx.measureText(text).width) / 2);
@@ -812,20 +841,27 @@ function updateChart(chartId, labels, data, label, type = 'bar', scaleOptions = 
     if (!ctx) return;
     if (charts[chartId]) { charts[chartId].destroy(); }
 
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    const textColor = isDarkMode ? '#e5e7eb' : '#6b7280';
+    const pointColor = isDarkMode ? '#a78bfa' : '#4bc0c0';
+    const barColor = isDarkMode ? '#818cf8' : '#4bc0c0';
+    const barFailColor = isDarkMode ? '#fca5a5' : '#ff9f40';
+
     let chartConfig;
 
     if (chartId === 'availabilityChart') {
         const value = data[0];
-        let color = '#ff9f40'; // Laranja
+        let color = barFailColor;
         if ((targetType === 'higher' && value >= target) || (targetType === 'lower' && value <= target)) {
-            color = '#4bc0c0'; // Verde-água
+            color = barColor;
         }
         
         chartConfig = {
             type: 'doughnut',
             data: {
                 labels: labels,
-                datasets: [{ data: data, backgroundColor: [color, '#e5e7eb'], borderWidth: 0, cutout: '70%' }]
+                datasets: [{ data: data, backgroundColor: [color, isDarkMode ? '#374151' : '#e5e7eb'], borderWidth: 0, cutout: '70%' }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
@@ -841,24 +877,38 @@ function updateChart(chartId, labels, data, label, type = 'bar', scaleOptions = 
                 datasets: [{
                     label: label, data: data,
                     backgroundColor: (context) => {
-                        if (!target || !targetType || type==='line') return type === 'line' ? 'transparent' : '#4bc0c0';
+                        if (!target || !targetType || type==='line') return type === 'line' ? 'transparent' : barColor;
                         const value = context.raw;
-                        if ((targetType === 'higher' && value >= target) || (targetType === 'lower' && value <= target)) return '#4bc0c0';
-                        return '#ff9f40';
+                        if ((targetType === 'higher' && value >= target) || (targetType === 'lower' && value <= target)) return barColor;
+                        return barFailColor;
                     },
-                    borderColor: '#4bc0c0',
+                    borderColor: pointColor,
                     borderWidth: 2,
-                    pointBackgroundColor: '#4bc0c0',
+                    pointBackgroundColor: pointColor,
                     tension: 0.1,
                     fill: type === 'line' ? false : true,
                 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, ...scaleOptions } },
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        ...scaleOptions,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    },
+                    x: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    }
+                },
                 plugins: {
                     annotation: { annotations: {} },
-                    legend: { display: !!fullData }
+                    legend: { 
+                        display: !!fullData,
+                        labels: { color: textColor }
+                    }
                 }
             }
         };
@@ -866,9 +916,9 @@ function updateChart(chartId, labels, data, label, type = 'bar', scaleOptions = 
         if (target && targetType && !fullData && type !== 'doughnut') {
             chartConfig.options.plugins.annotation.annotations.targetLine = {
                 type: 'line', yMin: target, yMax: target,
-                borderColor: '#ff6384',
+                borderColor: isDarkMode ? '#f87171' : '#ff6384',
                 borderWidth: 2, borderDash: [6, 6],
-                label: { content: `Meta`, enabled: true, position: 'end', yAdjust: -10, backgroundColor: 'rgba(255, 99, 132, 0.7)'}
+                label: { content: `Meta`, enabled: true, position: 'end', yAdjust: -10, backgroundColor: isDarkMode ? 'rgba(248, 113, 113, 0.7)' : 'rgba(255, 99, 132, 0.7)'}
             };
         }
     }

@@ -1,9 +1,83 @@
+/* Sidebar azul no tema claro */
+.sidebar {
+    background: linear-gradient(135deg, #3b4483 0%, #4a55a2 100%);
+    color: #fff;
+}
+.dark .sidebar {
+    background: #181c2a;
+    color: #fff;
+}
 body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
-.main-content { background-color: #4a55a2; }
 .card { background-color: #ffffff; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); color: #1f2937; transition: transform 0.2s, box-shadow 0.2s; }
-.sidebar { background-color: #3b4483; }
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
 .modal-content { background-color: white; padding: 2rem; border-radius: 0.5rem; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
+
+/* Modal de Configurações: azul no tema claro */
+
+/* Todos os modais laterais com fundo azul no tema claro */
+#settingsModal .modal-content,
+#helpModal .modal-content,
+#dbModal .modal-content,
+#compareYearsModal .modal-content,
+#editDataModal .modal-content,
+#addYearModal .modal-content {
+    background-color: #3b4483;
+    color: #fff;
+}
+
+/* Corrige cabeçalho da tabela no modal de base de dados */
+#dbModal .db-table th {
+    background-color: #4a55a2;
+    color: #fff;
+}
+#settingsModal .form-input,
+#helpModal .form-input,
+#dbModal .form-input,
+#compareYearsModal .form-input,
+#editDataModal .form-input,
+#addYearModal .form-input,
+#settingsModal .form-input:focus,
+#helpModal .form-input:focus,
+#dbModal .form-input:focus,
+#compareYearsModal .form-input:focus,
+#editDataModal .form-input:focus,
+#addYearModal .form-input:focus {
+    background-color: #4a55a2;
+    color: #fff;
+    border: 1px solid #fff;
+}
+#settingsModal label,
+#helpModal label,
+#dbModal label,
+#compareYearsModal label,
+#editDataModal label,
+#addYearModal label {
+    color: #c7d0f7;
+}
+#settingsModal button,
+#helpModal button,
+#dbModal button,
+#compareYearsModal button,
+#editDataModal button,
+#addYearModal button {
+    color: #fff;
+}
+#settingsModal .bg-blue-600,
+#helpModal .bg-blue-600,
+#dbModal .bg-blue-600,
+#compareYearsModal .bg-blue-600,
+#editDataModal .bg-blue-600,
+#addYearModal .bg-blue-600 {
+    background-color: #1e40af !important;
+}
+#settingsModal .bg-gray-300,
+#helpModal .bg-gray-300,
+#dbModal .bg-gray-300,
+#compareYearsModal .bg-gray-300,
+#editDataModal .bg-gray-300,
+#addYearModal .bg-gray-300 {
+    background-color: #64748b !important;
+}
 .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 .form-input { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; }
