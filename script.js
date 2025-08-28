@@ -32,7 +32,130 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Adicionar event listeners para importação XLSX e menu do database
+    setupXLSXImport();
+    setupDatabaseMenu();
 });
+
+// Controle do menu de database
+function setupDatabaseMenu() {
+    const dbButton = document.getElementById('btn-db');
+    const dbMenu = document.getElementById('database-menu');
+    
+    dbButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dbMenu.classList.toggle('hidden');
+    });
+
+    // Fechar o menu quando clicar fora dele
+    document.addEventListener('click', (e) => {
+        if (!dbMenu.contains(e.target) && !dbButton.contains(e.target)) {
+            dbMenu.classList.add('hidden');
+        }
+    });
+}
+
+// Funções para importação de XLSX
+function setupXLSXImport() {
+    const importButton = document.getElementById('btn-import-xlsx');
+    const fileInput = document.getElementById('xlsxFileInput');
+
+    importButton.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            importFromXLSX(file);
+        }
+    });
+}
+
+async function importFromXLSX(file) {
+    try {
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        
+        // Procura pela aba 'Ordens'
+        const ordersSheet = workbook.Sheets['Ordens'];
+        if (!ordersSheet) {
+            throw new Error("Aba 'Ordens' não encontrada no arquivo");
+        }
+
+        const ordersData = XLSX.utils.sheet_to_json(ordersSheet);
+        processImportedData(ordersData);
+    } catch (error) {
+        console.error('Erro ao importar arquivo:', error);
+        alert('Erro ao importar o arquivo. Verifique se o formato está correto.');
+    }
+}
+
+function processImportedData(ordersData) {
+    // Processar dados para cada gráfico
+    const ordersByType = {};
+    const ordersByPriority = {};
+    const materialCostByMonth = {};
+    const ordersByPlanner = {};
+
+    ordersData.forEach(order => {
+        // Contagem por tipo
+        ordersByType[order.tipo] = (ordersByType[order.tipo] || 0) + 1;
+
+        // Contagem por prioridade
+        ordersByPriority[order.prioridade] = (ordersByPriority[order.prioridade] || 0) + 1;
+
+        // Custo de material por mês
+        const month = new Date(order.data).toLocaleString('default', { month: 'long' });
+        materialCostByMonth[month] = (materialCostByMonth[month] || 0) + (order.custoMaterial || 0);
+
+        // Contagem por planejador
+        ordersByPlanner[order.planejador] = (ordersByPlanner[order.planejador] || 0) + 1;
+    });
+
+    updateDashboardWithImportedData(
+        ordersByType,
+        ordersByPriority,
+        materialCostByMonth,
+        ordersByPlanner
+    );
+}
+
+function updateDashboardWithImportedData(
+    ordersByType,
+    ordersByPriority,
+    materialCostByMonth,
+    ordersByPlanner
+) {
+    // Atualizar gráfico de tipos de ordem
+    if (ordersByTypeChart && ordersByTypeChart.data) {
+        ordersByTypeChart.data.labels = Object.keys(ordersByType);
+        ordersByTypeChart.data.datasets[0].data = Object.values(ordersByType);
+        ordersByTypeChart.update();
+    }
+
+    // Atualizar gráfico de prioridades
+    if (ordersByPriorityChart && ordersByPriorityChart.data) {
+        ordersByPriorityChart.data.labels = Object.keys(ordersByPriority);
+        ordersByPriorityChart.data.datasets[0].data = Object.values(ordersByPriority);
+        ordersByPriorityChart.update();
+    }
+
+    // Atualizar gráfico de custos por mês
+    if (materialCostByMonthChart && materialCostByMonthChart.data) {
+        materialCostByMonthChart.data.labels = Object.keys(materialCostByMonth);
+        materialCostByMonthChart.data.datasets[0].data = Object.values(materialCostByMonth);
+        materialCostByMonthChart.update();
+    }
+
+    // Atualizar gráfico de ordens por planejador
+    if (ordersByPlannerChart && ordersByPlannerChart.data) {
+        ordersByPlannerChart.data.labels = Object.keys(ordersByPlanner);
+        ordersByPlannerChart.data.datasets[0].data = Object.values(ordersByPlanner);
+        ordersByPlannerChart.update();
+    }
+}
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
