@@ -42,18 +42,41 @@ document.addEventListener('DOMContentLoaded', function() {
 function setupDatabaseMenu() {
     const dbButton = document.getElementById('btn-db');
     const dbMenu = document.getElementById('database-menu');
+    let isMenuOpen = false;
+    
+    function showMenu() {
+        dbMenu.classList.remove('hidden');
+        dbMenu.style.opacity = '1';
+        isMenuOpen = true;
+    }
+
+    function hideMenu() {
+        dbMenu.classList.add('hidden');
+        dbMenu.style.opacity = '0';
+        isMenuOpen = false;
+    }
     
     dbButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        dbMenu.classList.toggle('hidden');
+        if (isMenuOpen) {
+            hideMenu();
+        } else {
+            showMenu();
+        }
     });
 
     // Fechar o menu quando clicar fora dele
     document.addEventListener('click', (e) => {
-        if (!dbMenu.contains(e.target) && !dbButton.contains(e.target)) {
-            dbMenu.classList.add('hidden');
+        if (!dbMenu.contains(e.target) && !dbButton.contains(e.target) && isMenuOpen) {
+            hideMenu();
         }
     });
+
+    // Mostrar menu ao passar o mouse (apenas em desktop)
+    if (window.innerWidth > 768) {
+        dbButton.addEventListener('mouseenter', showMenu);
+        dbMenu.addEventListener('mouseleave', hideMenu);
+    }
 }
 
 // Funções para importação de XLSX
