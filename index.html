@@ -9,6 +9,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Bibliotecas de Exportação -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
         .main-content { background-color: #4a55a2; }
@@ -20,7 +24,8 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .form-input { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; }
         .form-input-small { padding: 0.5rem; text-align: center; }
-        .btn-disabled { cursor: not-allowed; background-color: #9ca3af !important; opacity: 0.7; }
+        .btn-disabled { cursor: not-allowed; opacity: 0.5; }
+        .btn-disabled:hover { background-color: #9ca3af !important; }
         #login-screen { background: linear-gradient(135deg, #3b4483 0%, #4a55a2 100%); }
         .db-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
         .db-table th, .db-table td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
@@ -77,11 +82,12 @@
             <div class="flex h-full">
                 <aside class="sidebar w-20 flex flex-col items-center py-6 space-y-6 text-white">
                     <div class="text-2xl font-bold">KPI</div>
-                    <div class="flex flex-col items-center space-y-8 mt-8 flex-grow">
+                    <div id="sidebar-main-actions" class="flex flex-col items-center space-y-8 mt-8 flex-grow">
                         <button id="btn-settings" class="p-3 rounded-lg sidebar-icon btn-disabled" title="Configurações" disabled><i data-lucide="settings"></i></button>
-                        <button id="btn-refresh" class="p-3 rounded-lg sidebar-icon" title="Atualizar"><i data-lucide="refresh-cw"></i></button>
-                        <button id="btn-home" class="p-3 rounded-lg sidebar-icon bg-white text-[#3b4483] rounded-xl" title="Início"><i data-lucide="home"></i></button>
+                        <button id="btn-edit" class="p-3 rounded-lg sidebar-icon btn-disabled" title="Editar Ano" disabled><i data-lucide="edit"></i></button>
+                        <button id="btn-compare-years" class="p-3 rounded-lg sidebar-icon" title="Comparar Anos"><i data-lucide="bar-chart-3"></i></button>
                         <button id="btn-db" class="p-3 rounded-lg sidebar-icon" title="Base de Dados"><i data-lucide="database"></i></button>
+                        <button id="btn-refresh" class="p-3 rounded-lg sidebar-icon" title="Atualizar"><i data-lucide="refresh-cw"></i></button>
                     </div>
                     <div class="flex flex-col items-center space-y-4">
                         <button id="btn-start-tour" class="p-3 rounded-lg sidebar-icon" title="Iniciar Tour"><i data-lucide="play-circle"></i></button>
@@ -100,8 +106,6 @@
                             <p class="text-sm text-indigo-200" id="header-datetime"></p>
                         </div>
                         <div id="header-buttons" class="flex items-center gap-2 flex-wrap justify-center md:justify-end">
-                             <button id="btn-compare-years" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition flex items-center gap-2"><i data-lucide="bar-chart-3"></i>Comparar</button>
-                            <button id="btn-edit" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 btn-disabled" disabled><i data-lucide="edit"></i>Editar</button>
                             <button id="btn-add-year" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition flex items-center gap-2"><i data-lucide="plus-circle"></i>Adicionar</button>
                             <button id="btn-logout" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition flex items-center gap-2"><i data-lucide="log-out"></i>Sair</button>
                         </div>
@@ -141,6 +145,11 @@
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                                 <div class="card"><h3 class="text-gray-500 font-medium mb-4">Custos Mensais de Manutenção</h3><div class="h-64"><canvas id="monthlyCostsChart"></canvas></div></div>
                                 <div class="card"><h3 class="text-gray-500 font-medium mb-4">O.S Corretivas Mensais</h3><div class="h-64"><canvas id="monthlyCorrectivesChart"></canvas></div></div>
+                            </div>
+                            <!-- Botões de Exportação -->
+                            <div id="export-buttons-container" class="mt-8 flex justify-center items-center gap-4">
+                                <button id="btn-export-pdf" class="bg-red-500 text-white font-semibold py-2 px-5 rounded-lg hover:bg-red-600 transition flex items-center gap-2"><i data-lucide="file-down"></i>Exportar para PDF</button>
+                                <button id="btn-export-xlsx" class="bg-green-500 text-white font-semibold py-2 px-5 rounded-lg hover:bg-green-600 transition flex items-center gap-2"><i data-lucide="file-spreadsheet"></i>Exportar para XLSX</button>
                             </div>
                         </div>
                     </div>
@@ -242,7 +251,6 @@
             startHeaderUpdates();
             setupDashboardEventListeners();
             initializeDashboard().then(() => {
-                // Inicia o tour se não tiver sido completado antes
                 if (!localStorage.getItem('tourCompleted')) {
                     startTour();
                 }
@@ -263,7 +271,6 @@
                     loadUserData(user).then(() => {
                         setupDashboardEventListeners();
                         initializeDashboard().then(() => {
-                            // Inicia o tour se não tiver sido completado antes
                             if (!localStorage.getItem('tourCompleted')) {
                                 startTour();
                             }
@@ -474,6 +481,8 @@
             document.getElementById('year-select').addEventListener('change', (e) => listenToYearData(e.target.value));
             document.getElementById('btn-compare-years').addEventListener('click', showCompareModal);
             document.getElementById('btn-generate-comparison').addEventListener('click', generateComparisonChart);
+            document.getElementById('btn-export-pdf').addEventListener('click', exportToPDF);
+            document.getElementById('btn-export-xlsx').addEventListener('click', exportToXLSX);
             
             document.querySelectorAll('.btn-close-modal').forEach(btn => { btn.addEventListener('click', () => closeModal(btn.dataset.modalId)); });
             
@@ -498,33 +507,25 @@
 
         const tourSteps = [
             { element: '#header-info', title: 'Boas-vindas!', description: 'Aqui você vê uma saudação, seu nome, a data e a hora atual.' , position: 'bottom' },
-            { element: '#header-buttons', title: 'Ações Principais', description: 'Use estes botões para Adicionar um novo ano, Editar o ano atual, Comparar dados entre anos ou Sair.' , position: 'bottom-left' },
-            { element: '.sidebar', title: 'Menu de Navegação', description: 'Acesse as Configurações, Base de Dados, ou atualize as informações por aqui.' , position: 'right' },
+            { element: '#header-buttons', title: 'Ações Principais', description: 'Use estes botões para Adicionar um novo ano ou Sair da sua conta.' , position: 'bottom-left' },
+            { element: '#sidebar-main-actions', title: 'Menu de Navegação', description: 'Aqui você pode alterar Configurações, Editar o ano atual, Comparar dados, ver a Base de Dados ou Atualizar as informações.' , position: 'right' },
             { element: '#year-selector-container', title: 'Seletor de Ano', description: 'Escolha o ano que deseja visualizar no painel.' , position: 'left' },
             { element: '#kpi-grids-container .card:first-child', title: 'Cartões de KPI', description: 'Estes cartões mostram os principais indicadores de manutenção (KPIs) de forma rápida e visual.' , position: 'bottom' },
             { element: '#charts-row-1', title: 'Gráficos de Performance', description: 'Acompanhe visualmente o MTTR, MTBF e a Disponibilidade para analisar a eficiência da sua equipe.' , position: 'top' },
-            { element: '#btn-settings', title: 'Configurações', description: 'Clique aqui para definir suas metas anuais e personalizar seu nome de usuário. Bom trabalho!' , position: 'right' }
+            { element: '#export-buttons-container', title: 'Exportar Relatórios', description: 'Clique aqui para salvar a visualização atual como PDF ou para exportar os dados brutos para uma planilha Excel (XLSX).' , position: 'top' },
         ];
 
         let currentStepIndex = 0;
         let highlightedElement = null;
 
         function showStep(index) {
-            if (highlightedElement) {
-                highlightedElement.classList.remove('tour-highlight');
-            }
-            if (index >= tourSteps.length) {
-                endTour();
-                return;
-            }
+            if (highlightedElement) highlightedElement.classList.remove('tour-highlight');
+            if (index >= tourSteps.length) { endTour(); return; }
 
             const step = tourSteps[index];
             const targetElement = document.querySelector(step.element);
             
-            if (!targetElement || targetElement.offsetParent === null) {
-                showStep(index + 1);
-                return;
-            }
+            if (!targetElement || targetElement.offsetParent === null) { showStep(index + 1); return; }
             
             targetElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
             highlightedElement = targetElement;
@@ -572,19 +573,104 @@
             localStorage.setItem('tourCompleted', 'true');
         }
 
-        document.getElementById('tour-next').addEventListener('click', () => {
-            currentStepIndex++;
-            showStep(currentStepIndex);
-        });
-        document.getElementById('tour-prev').addEventListener('click', () => {
-            if (currentStepIndex > 0) {
-                currentStepIndex--;
-                showStep(currentStepIndex);
-            }
-        });
+        document.getElementById('tour-next').addEventListener('click', () => { currentStepIndex++; showStep(currentStepIndex); });
+        document.getElementById('tour-prev').addEventListener('click', () => { if (currentStepIndex > 0) { currentStepIndex--; showStep(currentStepIndex); } });
         document.getElementById('tour-skip').addEventListener('click', endTour);
 
+        // --- FUNÇÕES DE EXPORTAÇÃO ---
 
+        function exportToPDF() {
+            const btn = document.getElementById('btn-export-pdf');
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`;
+            btn.disabled = true;
+
+            const content = document.getElementById('dashboard-content');
+            html2canvas(content, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#4a55a2'
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'px',
+                    format: [canvas.width, canvas.height]
+                });
+                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                const year = document.getElementById('year-select').value;
+                pdf.save(`dashboard-manutencao-${year}.pdf`);
+            }).finally(() => {
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+                lucide.createIcons();
+            });
+        }
+
+        function exportToXLSX() {
+            const btn = document.getElementById('btn-export-xlsx');
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`;
+            btn.disabled = true;
+
+            try {
+                const year = document.getElementById('year-select').value;
+                const kpis = currentYearData.kpis;
+                const charts = currentYearData.charts;
+                const targets = currentYearData.targets;
+                const totalCorrectives = (kpis.corretivas_mensal || []).reduce((a, b) => a + b, 0);
+                const totalCost = (kpis.custo_mensal || []).reduce((a, b) => a + b, 0);
+
+                const summaryData = [
+                    { Indicador: 'Corretivas (Total Ano)', Valor: totalCorrectives },
+                    { Indicador: 'Preventivas', Valor: kpis.preventivas },
+                    { Indicador: 'Preventivas a Vencer', Valor: kpis.preventivasVencer },
+                    { Indicador: 'Preditivas', Valor: kpis.preditivas },
+                    { Indicador: 'Melhorias', Valor: kpis.melhorias },
+                    { Indicador: 'Equipamentos Instalados', Valor: kpis.equipamentos },
+                    { Indicador: 'O.S Cadastradas', Valor: kpis.osCadastradas },
+                    { Indicador: 'Custo Total (R$)', Valor: totalCost.toFixed(2) },
+                    { Indicador: 'Disponibilidade Média (%)', Valor: kpis.disponibilidade },
+                    { Indicador: 'Meta Disponibilidade (%)', Valor: targets.disponibilidade },
+                    { Indicador: 'Meta MTTR', Valor: targets.mttr },
+                    { Indicador: 'Meta MTBF', Valor: targets.mtbf },
+                ];
+                const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+
+                const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                const monthlyData = months.map((month, i) => ({
+                    Mês: month,
+                    'Custo Mensal (R$)': kpis.custo_mensal[i] || 0,
+                    'O.S Corretivas': kpis.corretivas_mensal[i] || 0,
+                    'MTBF Mensal': charts.mtbf[i] || 0
+                }));
+                const wsMonthly = XLSX.utils.json_to_sheet(monthlyData);
+                
+                const mttrData = [
+                    { Trimestre: 'Trim. 1', MTTR: charts.mttr[0] || 0 },
+                    { Trimestre: 'Trim. 2', MTTR: charts.mttr[1] || 0 },
+                    { Trimestre: 'Trim. 3', MTTR: charts.mttr[2] || 0 }
+                ];
+                const wsMttr = XLSX.utils.json_to_sheet(mttrData);
+
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumo KPIs');
+                XLSX.utils.book_append_sheet(wb, wsMonthly, 'Dados Mensais');
+                XLSX.utils.book_append_sheet(wb, wsMttr, 'Dados MTTR');
+                
+                XLSX.writeFile(wb, `dados-manutencao-${year}.xlsx`);
+
+            } catch(e) {
+                console.error("Erro ao gerar XLSX:", e);
+                alert("Ocorreu um erro ao gerar o arquivo Excel.");
+            } finally {
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+        
         // --- Funções com lógica para MODO DE TESTE ---
         
         async function saveNewYearData(e) {
@@ -617,7 +703,7 @@
                 mockData[year] = newData;
                 alert(`(Modo Teste) Ano ${year} adicionado. A informação será perdida ao recarregar.`);
                 closeModal('addYearModal');
-                initializeDashboard(); // Re-inicializa para carregar o novo ano
+                initializeDashboard();
                 return;
             }
 
@@ -657,7 +743,7 @@
                 mockData[year].charts = updatedCharts;
                 alert('(Modo Teste) Dados atualizados com sucesso!');
                 closeModal('editDataModal');
-                listenToYearData(year); // Recarrega os dados do ano atual
+                listenToYearData(year);
                 return;
             }
 
@@ -688,7 +774,7 @@
                 startHeaderUpdates();
                 alert('(Modo Teste) Configurações salvas com sucesso!');
                 closeModal('settingsModal');
-                listenToYearData(year); // Recarrega para mostrar a nova meta nos gráficos
+                listenToYearData(year);
                 return;
             }
             
@@ -795,6 +881,7 @@
         }
 
         function showEditModal() {
+            showModal('editDataModal');
             const year = document.getElementById('year-select').value;
             document.getElementById('edit-year-title').textContent = year;
             const kpis = currentYearData.kpis;
@@ -821,11 +908,10 @@
             
             document.getElementById('edit-chart-mttr').value = currentYearData.charts.mttr.join(', ');
             document.getElementById('edit-chart-mtbf').value = currentYearData.charts.mtbf.join(', ');
-
-            showModal('editDataModal');
         }
 
         function showSettingsModal() {
+            showModal('settingsModal');
             const year = document.getElementById('year-select').value;
             document.getElementById('settings-year-title').textContent = year;
             document.getElementById('settings-user-name').value = currentUserData.name || '';
@@ -834,7 +920,6 @@
             document.getElementById('settings-mttr-target').value = targets.mttr || 0;
             document.getElementById('settings-mtbf-target').value = targets.mtbf || 0;
             document.getElementById('settings-disponibilidade-target').value = targets.disponibilidade || 95;
-            showModal('settingsModal');
         }
 
         const centerTextPlugin = {
