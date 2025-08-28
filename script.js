@@ -403,29 +403,26 @@ async function exportToPDF() {
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({
-        orientation: 'p', // Portrait for individual charts
+        orientation: 'landscape',
         unit: 'mm',
         format: 'a4'
     });
 
-    // Select all card elements that contain a chart canvas
     const chartCards = Array.from(document.querySelectorAll('#kpi-grids-container .card')).filter(card => card.querySelector('canvas'));
 
     try {
         for (let i = 0; i < chartCards.length; i++) {
             const card = chartCards[i];
             
-            // Hide buttons inside the card if any, for printing
             const buttons = card.querySelectorAll('button');
             buttons.forEach(b => b.style.display = 'none');
             
             const canvas = await html2canvas(card, {
-                scale: 2,
+                scale: 3,
                 useCORS: true,
-                backgroundColor: '#ffffff' // Cards are white
+                backgroundColor: '#ffffff'
             });
             
-            // Restore button visibility
             buttons.forEach(b => b.style.display = '');
 
             const imgData = canvas.toDataURL('image/png');
@@ -436,19 +433,17 @@ async function exportToPDF() {
             const canvasHeight = canvas.height;
             const ratio = canvasWidth / canvasHeight;
             
-            // A4 page size in mm: 210 x 297. Use margins.
             const margin = 15;
             let imgWidth = pdfWidth - (margin * 2);
             let imgHeight = imgWidth / ratio;
 
-            // If height is still too large, adjust based on height
             if (imgHeight > pdfHeight - (margin * 2)) {
                 imgHeight = pdfHeight - (margin * 2);
                 imgWidth = imgHeight * ratio;
             }
             
             const x = (pdfWidth - imgWidth) / 2;
-            const y = margin;
+            const y = (pdfHeight - imgHeight) / 2;
 
             if (i > 0) {
                 pdf.addPage();
