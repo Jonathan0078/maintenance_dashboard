@@ -25,6 +25,8 @@
         .db-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
         .db-table th, .db-table td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
         .db-table th { background-color: #f9fafb; font-weight: 600; }
+        .copy-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 4px; border-radius: 4px; transition: background-color 0.2s; }
+        .copy-btn:hover { background-color: #e5e7eb; }
     </style>
 </head>
 <body>
@@ -43,7 +45,19 @@
                     <div class="mb-6"><label for="password" class="block mb-2 text-sm">Senha</label><input type="password" id="password" class="form-input text-gray-800" required></div>
                     <p id="auth-error" class="text-red-400 text-center text-sm mb-4 h-5"></p>
                     <button type="submit" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">Entrar</button>
+                     <button type="button" id="btn-test-login" class="w-full mt-3 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 rounded-lg transition">Testar</button>
                 </form>
+                <div id="test-credentials" class="hidden mt-4 p-3 bg-white/20 rounded-lg text-sm">
+                    <p class="font-bold mb-2">Use os dados abaixo para testar:</p>
+                    <div class="flex items-center justify-between">
+                        <span>Email: <code id="test-email">teste123</code></span>
+                        <span class="copy-btn" title="Copiar" onclick="copyToClipboard('teste123')"><i data-lucide="copy" class="w-4 h-4"></i></span>
+                    </div>
+                    <div class="flex items-center justify-between mt-1">
+                        <span>Senha: <code id="test-password">teste123</code></span>
+                        <span class="copy-btn" title="Copiar" onclick="copyToClipboard('teste123')"><i data-lucide="copy" class="w-4 h-4"></i></span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -66,8 +80,8 @@
                     <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 z-50 flex items-center justify-center hidden"><div class="loader"></div></div>
                     <header class="bg-white shadow-md p-4 flex justify-between items-center">
                         <div>
-                            <p class="text-sm text-gray-500">Utilizador Ligado</p>
-                            <h1 class="text-lg font-semibold text-gray-800" id="user-email-display"></h1>
+                            <h1 class="text-xl font-bold text-gray-800" id="header-greeting"></h1>
+                            <p class="text-sm text-gray-500" id="header-datetime"></p>
                         </div>
                         <div class="flex items-center gap-2 flex-wrap justify-end">
                              <button id="btn-compare-years" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 transition flex items-center gap-2"><i data-lucide="bar-chart-3"></i>Comparar</button>
@@ -120,13 +134,23 @@
 
     <!-- Modals -->
     <div id="helpModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-xl font-bold mb-4">Ajuda</h2><p>Este é um painel de visão geral dos KPIs de manutenção. Use os botões para navegar, atualizar e gerir os dados.</p><button class="btn-close-modal mt-4 bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="helpModal">Fechar</button></div></div>
-    <div id="settingsModal" class="modal-overlay hidden"><div class="modal-content"><form id="settings-form"><h2 class="text-2xl font-bold mb-4">Configurações de Metas (<span id="settings-year-title"></span>)</h2><div class="space-y-4"><div><label for="settings-mttr-target" class="block text-sm font-medium">Meta MTTR</label><input type="number" step="0.1" id="settings-mttr-target" class="form-input mt-1" required></div><div><label for="settings-mtbf-target" class="block text-sm font-medium">Meta MTBF</label><input type="number" step="0.1" id="settings-mtbf-target" class="form-input mt-1" required></div><div><label for="settings-disponibilidade-target" class="block text-sm font-medium">Meta Disponibilidade (%)</label><input type="number" step="0.1" id="settings-disponibilidade-target" class="form-input mt-1" required></div></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="settingsModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar</button></div></form></div></div>
+    <div id="settingsModal" class="modal-overlay hidden"><div class="modal-content"><form id="settings-form"><h2 class="text-2xl font-bold mb-4">Configurações</h2><div class="space-y-4"><h3 class="text-lg font-semibold text-gray-800 border-b pb-2">Perfil do Utilizador</h3><div><label for="settings-user-name" class="block text-sm font-medium">Seu Nome</label><input type="text" id="settings-user-name" class="form-input mt-1" placeholder="Como quer ser chamado?"></div><h3 class="text-lg font-semibold text-gray-800 mt-6 border-b pb-2">Metas para o ano <span id="settings-year-title" class="font-bold"></span></h3><div><label for="settings-mttr-target" class="block text-sm font-medium">Meta MTTR</label><input type="number" step="0.1" id="settings-mttr-target" class="form-input mt-1" required></div><div><label for="settings-mtbf-target" class="block text-sm font-medium">Meta MTBF</label><input type="number" step="0.1" id="settings-mtbf-target" class="form-input mt-1" required></div><div><label for="settings-disponibilidade-target" class="block text-sm font-medium">Meta Disponibilidade (%)</label><input type="number" step="0.1" id="settings-disponibilidade-target" class="form-input mt-1" required></div></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="settingsModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar</button></div></form></div></div>
     <div id="dbModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-4">Base de Dados</h2><div id="db-table-container"></div><div class="flex justify-end mt-8"><button type="button" class="btn-close-modal bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="dbModal">Fechar</button></div></div></div>
     <div id="compareYearsModal" class="modal-overlay hidden"><div class="modal-content"><h2 class="text-2xl font-bold mb-4">Comparar Anos</h2><div id="compare-years-selection" class="grid grid-cols-4 gap-4 mb-6"></div><div style="height: 400px;"><canvas id="comparisonChart"></canvas></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="compareYearsModal">Fechar</button><button type="button" id="btn-generate-comparison" class="bg-purple-600 text-white px-4 py-2 rounded-lg">Gerar</button></div></div></div>
 
     <div id="addYearModal" class="modal-overlay hidden"><div class="modal-content"><form id="add-year-form"><h2 class="text-2xl font-bold mb-4">Adicionar Novos Dados Anuais</h2><div class="mb-4"><label for="add-year-input" class="block text-sm font-medium text-gray-700">Ano</label><input type="number" id="add-year-input" placeholder="Ex: 2025" class="form-input mt-1" required></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Indicadores Principais (KPIs)</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700">Preventivas</label><input type="number" id="add-preventivas" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Preventivas a Vencer</label><input type="number" id="add-preventivas-vencer" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Preditivas</label><input type="number" id="add-preditivas" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Melhorias</label><input type="number" id="add-melhorias" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Equipamentos Instalados</label><input type="number" id="add-equipamentos" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">O.S Cadastradas</label><input type="number" id="add-os-cadastradas" class="form-input mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700">Disponibilidade (%)</label><input type="number" step="0.1" id="add-disponibilidade" class="form-input mt-1" value="90" required></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados Mensais</h3><div><label class="block text-sm font-medium text-gray-700">Custos Mensais (R$)</label><div class="grid grid-cols-6 gap-2 mt-1"><input type="number" step="0.01" placeholder="Jan" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Fev" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Mar" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Abr" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Mai" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Jun" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Jul" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Ago" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Set" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Out" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Nov" class="form-input form-input-small add-custo-mensal" value="0" required><input type="number" step="0.01" placeholder="Dez" class="form-input form-input-small add-custo-mensal" value="0" required></div></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">O.S Corretivas Mensais</label><div class="grid grid-cols-6 gap-2 mt-1"><input type="number" placeholder="Jan" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Fev" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Mar" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Abr" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Mai" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Jun" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Jul" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Ago" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Set" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Out" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Nov" class="form-input form-input-small add-corretivas-mensal" value="0" required><input type="number" placeholder="Dez" class="form-input form-input-small add-corretivas-mensal" value="0" required></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados dos Gráficos Trimestrais/Anuais</h3><div><label class="block text-sm font-medium text-gray-700">MTTR (3 valores)</label><input type="text" id="add-chart-mttr" class="form-input mt-1" value="0, 0, 0" required><p class="text-xs text-gray-500 mt-1">Insira os 3 valores trimestrais, separados por vírgula.</p></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">MTBF (12 valores)</label><input type="text" id="add-chart-mtbf" class="form-input mt-1" value="0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0" required><p class="text-xs text-gray-500 mt-1">Insira os 12 valores mensais, separados por vírgula.</p></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="addYearModal">Cancelar</button><button type="submit" id="save-new-year-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg">Criar Ano</button></div></form></div></div>
     <div id="editDataModal" class="modal-overlay hidden"><div class="modal-content"><form id="edit-form"><h2 class="text-2xl font-bold mb-4">Editar Dados de <span id="edit-year-title"></span></h2><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Indicadores Principais (KPIs)</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700">Preventivas</label><input type="number" id="edit-preventivas" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Preventivas a Vencer</label><input type="number" id="edit-preventivas-vencer" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Preditivas</label><input type="number" id="edit-preditivas" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Melhorias</label><input type="number" id="edit-melhorias" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Equipamentos Instalados</label><input type="number" id="edit-equipamentos" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">O.S Cadastradas</label><input type="number" id="edit-os-cadastradas" class="form-input mt-1" required></div><div><label class="block text-sm font-medium text-gray-700">Disponibilidade (%)</label><input type="number" step="0.1" id="edit-disponibilidade" class="form-input mt-1" required></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados Mensais</h3><div><label class="block text-sm font-medium text-gray-700">Custos Mensais (R$)</label><div id="edit-custos-mensais-container" class="grid grid-cols-6 gap-2 mt-1"></div></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">O.S Corretivas Mensais</label><div id="edit-corretivas-mensais-container" class="grid grid-cols-6 gap-2 mt-1"></div></div><h3 class="text-lg font-semibold text-gray-800 mt-6 mb-3 border-b pb-2">Dados dos Gráficos Trimestrais/Anuais</h3><div><label class="block text-sm font-medium text-gray-700">MTTR (3 valores)</label><input type="text" id="edit-chart-mttr" class="form-input mt-1" required></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700">MTBF (12 valores)</label><input type="text" id="edit-chart-mtbf" class="form-input mt-1" required></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 px-4 py-2 rounded-lg" data-modal-id="editDataModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar Alterações</button></div></form></div></div>
 
+    <script>
+        // Função global para copiar texto
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copiado para a área de transferência!');
+            }, (err) => {
+                alert('Erro ao copiar: ', err);
+            });
+        }
+    </script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -147,7 +171,9 @@
 
         let dbUnsubscribe = null;
         let clockInterval = null;
+        let headerInterval = null;
         let currentYearData = {};
+        let currentUserData = {};
         let isDataLoaded = false;
         const charts = {};
 
@@ -163,18 +189,48 @@
             if (user) {
                 loginScreen.classList.add('hidden');
                 dashboardContainer.classList.remove('hidden');
-                document.getElementById('user-email-display').textContent = user.email;
                 if (clockInterval) clearInterval(clockInterval);
+                loadUserData(user);
                 setupDashboardEventListeners();
                 initializeDashboard();
             } else {
                 dashboardContainer.classList.add('hidden');
                 loginScreen.classList.remove('hidden');
                 if (dbUnsubscribe) dbUnsubscribe();
+                if (headerInterval) clearInterval(headerInterval);
                 startClockAndGreeting();
                 setButtonsState(false);
             }
         });
+
+        async function loadUserData(user) {
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+                currentUserData = userSnap.data();
+            } else {
+                currentUserData = { name: user.email }; // Fallback para o email
+            }
+            startHeaderUpdates();
+        }
+
+        function startHeaderUpdates() {
+            const updateHeader = () => {
+                const now = new Date();
+                const hour = now.getHours();
+                let greeting = '';
+                if (hour >= 5 && hour < 12) greeting = 'Bom Dia';
+                else if (hour >= 12 && hour < 18) greeting = 'Boa Tarde';
+                else greeting = 'Boa Noite';
+                
+                document.getElementById('header-greeting').textContent = `${greeting}, ${currentUserData.name || ''}!`;
+                document.getElementById('header-datetime').textContent = now.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
+            };
+            
+            if (headerInterval) clearInterval(headerInterval);
+            updateHeader(); // Chame imediatamente
+            headerInterval = setInterval(updateHeader, 10000); // Atualiza a cada 10 segundos
+        }
 
         async function handleLogin(e) {
             e.preventDefault();
@@ -332,6 +388,10 @@
         
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('login-form').addEventListener('submit', handleLogin);
+            document.getElementById('btn-test-login').addEventListener('click', () => {
+                document.getElementById('test-credentials').classList.toggle('hidden');
+                lucide.createIcons(); // Recriar ícones se estiverem no div
+            });
         });
 
         function showEditModal() {
@@ -368,6 +428,10 @@
         function showSettingsModal() {
             const year = document.getElementById('year-select').value;
             document.getElementById('settings-year-title').textContent = year;
+
+            // Preencher nome do usuário
+            document.getElementById('settings-user-name').value = currentUserData.name || '';
+            
             const targets = currentYearData.targets || {};
             document.getElementById('settings-mttr-target').value = targets.mttr || 0;
             document.getElementById('settings-mtbf-target').value = targets.mtbf || 0;
@@ -495,6 +559,8 @@
         async function saveSettings(e) {
             e.preventDefault();
             const year = document.getElementById('year-select').value;
+            const userName = document.getElementById('settings-user-name').value;
+            
             const updatedTargets = {
                 targets: {
                     mttr: parseFloat(document.getElementById('settings-mttr-target').value),
@@ -502,12 +568,21 @@
                     disponibilidade: parseFloat(document.getElementById('settings-disponibilidade-target').value)
                 }
             };
+            
             try {
+                // Salvar metas do ano
                 await updateDoc(doc(db, "maintenance_data", year), updatedTargets);
-                alert('Configurações salvas!');
+
+                // Salvar nome do usuário
+                const userRef = doc(db, "users", auth.currentUser.uid);
+                await setDoc(userRef, { name: userName }, { merge: true });
+                currentUserData.name = userName; // Atualiza localmente
+                startHeaderUpdates(); // Re-renderiza o cabeçalho
+                
+                alert('Configurações salvas com sucesso!');
                 closeModal('settingsModal');
             } catch (error) {
-                alert(`Erro ao salvar: ${error.message}`);
+                alert(`Erro ao salvar as configurações: ${error.message}`);
             }
         }
         
