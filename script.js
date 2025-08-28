@@ -41,42 +41,12 @@ document.addEventListener('DOMContentLoaded', function() {
 // Controle do menu de database
 function setupDatabaseMenu() {
     const dbButton = document.getElementById('btn-db');
-    const dbMenu = document.getElementById('database-menu');
-    let isMenuOpen = false;
-    
-    function showMenu() {
-        dbMenu.classList.remove('hidden');
-        dbMenu.style.opacity = '1';
-        isMenuOpen = true;
-    }
+    const dbModal = document.getElementById('dbModal');
 
-    function hideMenu() {
-        dbMenu.classList.add('hidden');
-        dbMenu.style.opacity = '0';
-        isMenuOpen = false;
-    }
-    
-    dbButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (isMenuOpen) {
-            hideMenu();
-        } else {
-            showMenu();
-        }
+    dbButton.addEventListener('click', () => {
+        showModal('dbModal');
+        // A lógica de importação e exportação agora está dentro do modal
     });
-
-    // Fechar o menu quando clicar fora dele
-    document.addEventListener('click', (e) => {
-        if (!dbMenu.contains(e.target) && !dbButton.contains(e.target) && isMenuOpen) {
-            hideMenu();
-        }
-    });
-
-    // Mostrar menu ao passar o mouse (apenas em desktop)
-    if (window.innerWidth > 768) {
-        dbButton.addEventListener('mouseenter', showMenu);
-        dbMenu.addEventListener('mouseleave', hideMenu);
-    }
 }
 
 // Funções para importação de XLSX
@@ -101,83 +71,163 @@ async function importFromXLSX(file) {
         const data = await file.arrayBuffer();
         const workbook = XLSX.read(data);
         
-        // Procura pela aba 'Ordens'
-        const ordersSheet = workbook.Sheets['Ordens'];
+        // Procura pela aba 'Dados1' (nome real da aba)
+        const ordersSheet = workbook.Sheets['Dados1'];
         if (!ordersSheet) {
-            throw new Error("Aba 'Ordens' não encontrada no arquivo");
+            throw new Error("Aba 'Dados1' não encontrada no arquivo");
         }
 
         const ordersData = XLSX.utils.sheet_to_json(ordersSheet);
+        console.log('Dados importados:', ordersData.length, 'registros');
         processImportedData(ordersData);
+        
+        // Mostrar mensagem de sucesso
+        alert(`Arquivo importado com sucesso! ${ordersData.length} registros processados.`);
     } catch (error) {
         console.error('Erro ao importar arquivo:', error);
-        alert('Erro ao importar o arquivo. Verifique se o formato está correto.');
+        alert('Erro ao importar o arquivo: ' + error.message);
     }
 }
 
 function processImportedData(ordersData) {
-    // Processar dados para cada gráfico
-    const ordersByType = {};
-    const ordersByPriority = {};
-    const materialCostByMonth = {};
-    const ordersByPlanner = {};
+    // Mapeamento de tipos de manutenção
+    const tipoMapping = {
+        7: 'Corretiva',
+        10: 'Preventiva', 
+        22: 'Preditiva',
+        12: 'Melhoria',
+        21: 'Inspeção',
+        11: 'Modificação',
+        9: 'Calibração',
+        5: 'Limpeza',
+        8: 'Outros'
+    };
+
+    // Processar dados para KPIs e gráficos
+    const tipoCount = {};
+    const statusCount = {};
+    const custoMensal = {};
+    const equipamentosSet = new Set();
+    let totalCusto = 0;
+    let totalOS = ordersData.length;
 
     ordersData.forEach(order => {
-        // Contagem por tipo
-        ordersByType[order.tipo] = (ordersByType[order.tipo] || 0) + 1;
+        // Contagem por tipo de manutenção
+        const tipoCode = order['Tipo de Manutenção'];
+        const tipoDesc = tipoMapping[tipoCode] || 'Outros';
+        tipoCount[tipoDesc] = (tipoCount[tipoDesc] || 0) + 1;
 
-        // Contagem por prioridade
-        ordersByPriority[order.prioridade] = (ordersByPriority[order.prioridade] || 0) + 1;
+        // Contagem por status
+        const status = order['Estado OM'] || 'Não Definido';
+        statusCount[status] = (statusCount[status] || 0) + 1;
 
-        // Custo de material por mês
-        const month = new Date(order.data).toLocaleString('default', { month: 'long' });
-        materialCostByMonth[month] = (materialCostByMonth[month] || 0) + (order.custoMaterial || 0);
+        // Custo por mês (se houver data)
+        if (order['Data Manutenção']) {
+            try {
+                const data = new Date(order['Data Manutenção']);
+                const mes = data.getMonth() + 1; // 1-12
+                const valorMaterial = parseFloat(order['Valor Material']) || 0;
+                custoMensal[mes] = (custoMensal[mes] || 0) + valorMaterial;
+                totalCusto += valorMaterial;
+            } catch (e) {
+                console.warn('Erro ao processar data:', order['Data Manutenção']);
+            }
+        }
 
-        // Contagem por planejador
-        ordersByPlanner[order.planejador] = (ordersByPlanner[order.planejador] || 0) + 1;
+        // Equipamentos únicos
+        if (order['Nome Equipamento']) {
+            equipamentosSet.add(order['Nome Equipamento']);
+        }
     });
 
-    updateDashboardWithImportedData(
-        ordersByType,
-        ordersByPriority,
-        materialCostByMonth,
-        ordersByPlanner
-    );
+    // Atualizar KPIs no dashboard
+    updateKPIsFromImportedData(tipoCount, statusCount, totalCusto, totalOS, equipamentosSet.size);
+    
+    // Atualizar gráficos
+    updateChartsFromImportedData(tipoCount, statusCount, custoMensal, ordersData);
 }
 
-function updateDashboardWithImportedData(
-    ordersByType,
-    ordersByPriority,
-    materialCostByMonth,
-    ordersByPlanner
-) {
-    // Atualizar gráfico de tipos de ordem
-    if (ordersByTypeChart && ordersByTypeChart.data) {
-        ordersByTypeChart.data.labels = Object.keys(ordersByType);
-        ordersByTypeChart.data.datasets[0].data = Object.values(ordersByType);
-        ordersByTypeChart.update();
+function updateKPIsFromImportedData(tipoCount, statusCount, totalCusto, totalOS, totalEquipamentos) {
+    // Atualizar KPIs principais
+    document.getElementById('kpi-corretivas').textContent = tipoCount['Corretiva'] || 0;
+    document.getElementById('kpi-preventivas').textContent = tipoCount['Preventiva'] || 0;
+    document.getElementById('kpi-preditivas').textContent = tipoCount['Preditiva'] || 0;
+    document.getElementById('kpi-melhorias').textContent = tipoCount['Melhoria'] || 0;
+    
+    // Calcular preventivas a vencer (aproximação baseada em status)
+    const preventivasVencer = statusCount['Não Iniciada'] || 0;
+    document.getElementById('kpi-preventivas-vencer').textContent = preventivasVencer;
+    
+    // Atualizar outros KPIs
+    document.getElementById('kpi-equipamentos').textContent = totalEquipamentos;
+    document.getElementById('kpi-os-cadastradas').textContent = totalOS;
+    document.getElementById('kpi-custo-total').textContent = `R$ ${totalCusto.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function updateChartsFromImportedData(tipoCount, statusCount, custoMensal, ordersData) {
+    // Atualizar gráfico de custos mensais se existir
+    if (window.charts && window.charts.monthlyCosts) {
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const custoArray = [];
+        for (let i = 1; i <= 12; i++) {
+            custoArray.push(custoMensal[i] || 0);
+        }
+        
+        window.charts.monthlyCosts.data.labels = meses;
+        window.charts.monthlyCosts.data.datasets[0].data = custoArray;
+        window.charts.monthlyCosts.update();
     }
 
-    // Atualizar gráfico de prioridades
-    if (ordersByPriorityChart && ordersByPriorityChart.data) {
-        ordersByPriorityChart.data.labels = Object.keys(ordersByPriority);
-        ordersByPriorityChart.data.datasets[0].data = Object.values(ordersByPriority);
-        ordersByPriorityChart.update();
+    // Atualizar gráfico de corretivas mensais se existir
+    if (window.charts && window.charts.monthlyCorrectives) {
+        const corretivasMensal = {};
+        ordersData.forEach(order => {
+            if (order['Data Manutenção'] && order['Tipo de Manutenção'] === 7) { // Corretiva
+                try {
+                    const data = new Date(order['Data Manutenção']);
+                    const mes = data.getMonth() + 1;
+                    corretivasMensal[mes] = (corretivasMensal[mes] || 0) + 1;
+                } catch (e) {
+                    console.warn('Erro ao processar data para corretivas:', order['Data Manutenção']);
+                }
+            }
+        });
+
+        const corretivasArray = [];
+        for (let i = 1; i <= 12; i++) {
+            corretivasArray.push(corretivasMensal[i] || 0);
+        }
+
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        window.charts.monthlyCorrectives.data.labels = meses;
+        window.charts.monthlyCorrectives.data.datasets[0].data = corretivasArray;
+        window.charts.monthlyCorrectives.update();
     }
 
-    // Atualizar gráfico de custos por mês
-    if (materialCostByMonthChart && materialCostByMonthChart.data) {
-        materialCostByMonthChart.data.labels = Object.keys(materialCostByMonth);
-        materialCostByMonthChart.data.datasets[0].data = Object.values(materialCostByMonth);
-        materialCostByMonthChart.update();
+    // Criar novos gráficos se necessário
+    createAdditionalChartsFromImportedData(tipoCount, statusCount, ordersData);
+}
+
+function createAdditionalChartsFromImportedData(tipoCount, statusCount, ordersData) {
+    // Destruir gráficos existentes antes de criar novos, se existirem
+    if (window.maintenanceTypeChart instanceof Chart) {
+        window.maintenanceTypeChart.destroy();
+    }
+    if (window.orderStatusChart instanceof Chart) {
+        window.orderStatusChart.destroy();
+    }
+    if (window.criticalEquipmentChart instanceof Chart) {
+        window.criticalEquipmentChart.destroy();
     }
 
-    // Atualizar gráfico de ordens por planejador
-    if (ordersByPlannerChart && ordersByPlannerChart.data) {
-        ordersByPlannerChart.data.labels = Object.keys(ordersByPlanner);
-        ordersByPlannerChart.data.datasets[0].data = Object.values(ordersByPlanner);
-        ordersByPlannerChart.update();
-    }
+    // Criar gráfico de distribuição por tipo de manutenção
+    window.maintenanceTypeChart = createMaintenanceTypeChart(tipoCount);
+    
+    // Criar gráfico de status das ordens
+    window.orderStatusChart = createOrderStatusChart(statusCount);
+    
+    // Criar gráfico de equipamentos mais críticos
+    window.criticalEquipmentChart = createCriticalEquipmentChart(ordersData);
 }
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -1164,3 +1214,195 @@ function updateChart(chartId, labels, data, label, type = 'bar', scaleOptions = 
 
     charts[chartId] = new Chart(ctx, chartConfig);
 }
+
+
+// Funções para criar novos gráficos dos dados importados
+function createMaintenanceTypeChart(tipoCount) {
+    const ctx = document.getElementById('maintenanceTypeChart');
+    if (!ctx) return;
+
+    // Mostrar container dos gráficos importados
+    document.getElementById('imported-charts-container').classList.remove('hidden');
+
+    // Destruir gráfico existente se houver
+    if (window.maintenanceTypeChart instanceof Chart) {
+        window.maintenanceTypeChart.destroy();
+    }
+
+    const labels = Object.keys(tipoCount);
+    const data = Object.values(tipoCount);
+    const colors = [
+        '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', 
+        '#8b5cf6', '#ec4899', '#6b7280', '#14b8a6'
+    ];
+
+    return new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.parsed / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.parsed} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createOrderStatusChart(statusCount) {
+    const ctx = document.getElementById("orderStatusChart");
+    if (!ctx) return;
+
+    // Destruir gráfico existente se houver
+    if (window.orderStatusChart instanceof Chart) {
+        window.orderStatusChart.destroy();
+    }
+
+    const labels = Object.keys(statusCount);
+    const data = Object.values(statusCount);
+    const colors = ["#22c55e", "#eab308", "#ef4444", "#6b7280"];
+
+    return new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Quantidade de Ordens",
+                data: data,
+                backgroundColor: colors.slice(0, labels.length),
+                borderColor: colors.slice(0, labels.length),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createCriticalEquipmentChart(ordersData) {
+    const ctx = document.getElementById("criticalEquipmentChart");
+    if (!ctx) return;
+
+    // Destruir gráfico existente se houver
+    if (window.criticalEquipmentChart instanceof Chart) {
+        window.criticalEquipmentChart.destroy();
+    }
+
+    // Contar ordens por equipamento
+    const equipmentCount = {};
+    ordersData.forEach(order => {
+        const equipment = order["Nome Equipamento"];
+        if (equipment) {
+            equipmentCount[equipment] = (equipmentCount[equipment] || 0) + 1;
+        }
+    });
+
+    // Pegar os 10 equipamentos com mais ordens
+    const sortedEquipments = Object.entries(equipmentCount)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10);
+
+    const labels = sortedEquipments.map(([name]) => {
+        // Truncar nomes muito longos
+        return name.length > 25 ? name.substring(0, 25) + "..." : name;
+    });
+    const data = sortedEquipments.map(([,count]) => count);
+
+    return new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Número de Ordens",
+                data: data,
+                backgroundColor: "#ef4444",
+                borderColor: "#dc2626",
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: "y",
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            // Mostrar nome completo no tooltip
+                            const index = context[0].dataIndex;
+                            return sortedEquipments[index][0];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                },
+                y: {
+                    ticks: {
+                        maxRotation: 0,
+                        font: {
+                            size: 10
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Função para mostrar/ocultar gráficos baseado em dados
+function toggleChartsVisibility(hasData) {
+    const container = document.getElementById('imported-charts-container');
+    if (hasData) {
+        container.classList.remove('hidden');
+    } else {
+        container.classList.add('hidden');
+    }
+}
+

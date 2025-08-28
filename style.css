@@ -49,7 +49,7 @@
         position: fixed;
         top: 0;
         left: 0;
-        width: 250px !important;
+        width: 200px !important; /* Tornar o menu mais fino */
         height: 100vh !important;
         flex-direction: column !important;
         padding: 1rem;
@@ -94,6 +94,19 @@
 
     .sidebar-overlay.active {
         display: block;
+    }
+}
+
+/* Remover a faixa azul do botão do menu no cabeçalho em dispositivos móveis */
+@media (max-width: 768px) {
+    #sidebar-toggle {
+        background-color: transparent !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    #sidebar-toggle i {
+        color: white !important; /* Garante que o ícone permaneça visível */
     }
 }
 /* Estilo para alertas do dashboard */
