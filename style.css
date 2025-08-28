@@ -6,8 +6,6 @@
     overflow-y: auto;
     box-shadow: 0 8px 32px 0 rgba(0,0,0,0.18);
 }
-#alerts-overlay {
-}
 #alerts-badge {
     min-width: 18px;
     min-height: 18px;
@@ -28,26 +26,74 @@
         font-size: 0.95rem;
     }
 }
-@media (max-width: 600px) {
+
+/* Ajuste do layout principal */
+#dashboard-container {
+    min-height: 100vh;
+    background-color: #F3F4F6;
+}
+
+.dark #dashboard-container {
+    background-color: #111827;
+}
+
+#sidebar {
+    background-color: #4a55a2;
+}
+
+.dark #sidebar {
+    background-color: #1F2937;
+}
+@media (max-width: 768px) {
     .sidebar {
-        width: 100% !important;
-        flex-direction: row !important;
-        height: auto !important;
-        min-height: 56px;
-        padding: 0.5rem 0.5rem;
-        justify-content: flex-start;
-        align-items: flex-start;
-        gap: 0.5rem;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 250px !important;
+        height: 100vh !important;
+        flex-direction: column !important;
+        padding: 1rem;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 50;
     }
-    .sidebar > div, .sidebar button {
-        margin: 0 0.25rem;
+    
+    .sidebar.active {
+        transform: translateX(0);
     }
+
+    .sidebar > div {
+        margin: 1rem 0;
+    }
+
+    #sidebar-main-actions {
+        align-items: start;
+    }
+
     #dashboard-content {
-        padding: 0.5rem;
+        padding: 1rem;
+        margin-left: 0;
     }
+
     .card {
-        padding: 0.5rem;
+        padding: 1rem;
         font-size: 0.9rem;
+    }
+
+    /* Overlay para quando o menu estiver aberto */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 40;
+    }
+
+    .sidebar-overlay.active {
+        display: block;
     }
 }
 /* Estilo para alertas do dashboard */
