@@ -211,7 +211,7 @@ function listenToYearData(year) {
 
 function updateDashboardUI(data) {
     if (!data || !data.kpis) return;
-    
+
     const kpis = data.kpis;
     const custoMensal = kpis.custo_mensal || Array(12).fill(0);
     const corretivasMensal = kpis.corretivas_mensal || Array(12).fill(0);
@@ -231,6 +231,41 @@ function updateDashboardUI(data) {
     document.getElementById('mttr-target').textContent = `Target: ${targets.mttr || 0}`;
     document.getElementById('mtbf-target').textContent = `Target: ${targets.mtbf || 0}`;
     document.getElementById('disponibilidade-target').textContent = `Target: ${targets.disponibilidade || 0}%`;
+
+
+    // ALERTAS VISUAIS (popover)
+    const alerts = [];
+    if (targets.disponibilidade && kpis.disponibilidade < targets.disponibilidade) {
+        alerts.push(`Disponibilidade abaixo da meta (${kpis.disponibilidade}% < ${targets.disponibilidade}%)`);
+    }
+    if (targets.mttr && data.charts && data.charts.mttr && data.charts.mttr.length) {
+        const mttrMedia = data.charts.mttr.reduce((a,b)=>a+b,0)/data.charts.mttr.length;
+        if (mttrMedia > targets.mttr) alerts.push(`MTTR acima da meta (${mttrMedia.toFixed(2)} > ${targets.mttr})`);
+    }
+    if (targets.mtbf && data.charts && data.charts.mtbf && data.charts.mtbf.length) {
+        const mtbfMedia = data.charts.mtbf.reduce((a,b)=>a+b,0)/data.charts.mtbf.length;
+        if (mtbfMedia < targets.mtbf) alerts.push(`MTBF abaixo da meta (${mtbfMedia.toFixed(0)} < ${targets.mtbf})`);
+    }
+    const mediaCorretivas = corretivasMensal.reduce((a,b)=>a+b,0)/corretivasMensal.length;
+    if (mediaCorretivas > 10) alerts.push(`Corretivas mensais acima do esperado (${mediaCorretivas.toFixed(1)} por mês)`);
+    if (kpis.preventivasVencer && kpis.preventivasVencer > 0) alerts.push(`Existem ${kpis.preventivasVencer} preventivas a vencer!`);
+
+    // Atualiza badge e popover
+    const badge = document.getElementById('alerts-badge');
+    const overlay = document.getElementById('alerts-overlay');
+    const popover = document.getElementById('alerts-popover');
+    const list = document.getElementById('alerts-list');
+    if (badge && overlay && popover && list) {
+        if (alerts.length) {
+            badge.textContent = alerts.length;
+            badge.classList.remove('hidden');
+            list.innerHTML = alerts.map(msg => `<div>⚠️ ${msg}</div>`).join('');
+        } else {
+            badge.classList.add('hidden');
+            list.innerHTML = '<div class="text-gray-400 dark:text-gray-500">Nenhuma notificação.</div>';
+        }
+        overlay.classList.add('hidden'); // sempre inicia fechado
+    }
 
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -281,6 +316,22 @@ function startClockAndGreeting() {
 
 let listenersAttached = false;
 function setupDashboardEventListeners() {
+
+    // Notificações popover
+    const btnAlerts = document.getElementById('btn-alerts');
+    const overlay = document.getElementById('alerts-overlay');
+    if (btnAlerts && overlay) {
+        btnAlerts.addEventListener('click', (e) => {
+            e.stopPropagation();
+            overlay.classList.remove('hidden');
+        });
+        document.addEventListener('click', () => {
+            overlay.classList.add('hidden');
+        });
+        overlay.addEventListener('click', () => {
+            overlay.classList.add('hidden');
+        });
+    }
     if (listenersAttached) return;
     
     document.getElementById('btn-logout').addEventListener('click', () => {
