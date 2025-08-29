@@ -902,12 +902,14 @@ function loadEquipmentAnalysis() {
         const equipmentStats = {};
         
         currentExcelData.forEach(row => {
-            const equipment = row['Nome Equipamento'];
-            if (!equipment) return;
+            const equipmentName = row['Nome Equipamento'];
+            if (!equipmentName) return;
             
-            if (!equipmentStats[equipment]) {
-                equipmentStats[equipment] = {
-                    name: equipment,
+            if (!equipmentStats[equipmentName]) {
+                equipmentStats[equipmentName] = {
+                    name: equipmentName,
+                    code: row['Equipamento'] || 'N/A',
+                    tag: row['Tag'] || row['Descrição do Tag'] || 'N/A',
                     total_orders: 0,
                     corrective: 0,
                     preventive: 0,
@@ -915,33 +917,34 @@ function loadEquipmentAnalysis() {
                 };
             }
             
-            equipmentStats[equipment].total_orders++;
+            equipmentStats[equipmentName].total_orders++;
             
             if (row['Tipo de Manutenção'] === 7) {
-                equipmentStats[equipment].corrective++;
+                equipmentStats[equipmentName].corrective++;
             } else if (row['Tipo de Manutenção'] === 10) {
-                equipmentStats[equipment].preventive++;
+                equipmentStats[equipmentName].preventive++;
             }
             
             const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
             const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
-            equipmentStats[equipment].cost += valorMaterial + valorMaoObra;
+            equipmentStats[equipmentName].cost += valorMaterial + valorMaoObra;
         });
         
         // Converter para array e ordenar por custo
         const equipmentArray = Object.values(equipmentStats)
-            .sort((a, b) => b.cost - a.cost)
-            .slice(0, 10);
+            .sort((a, b) => b.cost - a.cost);
         
         const content = document.getElementById('equipment-analysis-content');
         if (content) {
             content.innerHTML = `
-                <h3 class="text-white font-semibold mb-4">Top 10 Equipamentos por Custo</h3>
+                <h3 class="text-white font-semibold mb-4">Análise de Equipamentos</h3>
                 <div class="overflow-x-auto">
                     <table class="w-full text-white">
                         <thead>
                             <tr class="border-b border-gray-600">
                                 <th class="text-left p-2">Equipamento</th>
+                                <th class="text-left p-2">Código</th>
+                                <th class="text-left p-2">Tag</th>
                                 <th class="text-left p-2">Total O.S</th>
                                 <th class="text-left p-2">Corretivas</th>
                                 <th class="text-left p-2">Preventivas</th>
@@ -952,6 +955,8 @@ function loadEquipmentAnalysis() {
                             ${equipmentArray.map(eq => `
                                 <tr class="border-b border-gray-700">
                                     <td class="p-2 text-sm">${eq.name}</td>
+                                    <td class="p-2 text-sm">${eq.code}</td>
+                                    <td class="p-2 text-sm">${eq.tag}</td>
                                     <td class="p-2">${eq.total_orders}</td>
                                     <td class="p-2 text-red-400">${eq.corrective}</td>
                                     <td class="p-2 text-green-400">${eq.preventive}</td>
