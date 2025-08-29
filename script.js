@@ -178,29 +178,33 @@ function setupEventListeners() {
     document.getElementById('btn-process-file').addEventListener('click', processExcelFile);
     document.getElementById('excel-file-input').addEventListener('change', handleFileSelect);
 
-    // Filtros
+    // Adicionar event listeners para os filtros
     document.getElementById('filter-year').addEventListener('change', handleFilterChange);
     document.getElementById('filter-month').addEventListener('change', handleFilterChange);
 
-    // Botões de edição de gráfico
-    document.getElementById('btn-edit-mttr').addEventListener('click', openMTTRModal);
-    document.getElementById('btn-edit-mtbf').addEventListener('click', openMTBFModal);
-    document.getElementById('btn-edit-monthlyCosts').addEventListener('click', openMonthlyCostsModal);
-    document.getElementById('btn-edit-monthlyCorrectives').addEventListener('click', () => alert('Função de edição para este gráfico ainda não implementada.'));
-    document.getElementById('btn-edit-monthlyStatus').addEventListener('click', () => alert('Função de edição para este gráfico ainda não implementada.'));
-    document.getElementById('btn-edit-maintenanceType').addEventListener('click', () => alert('Função de edição para este gráfico ainda não implementada.'));
-    document.getElementById('btn-edit-criticality').addEventListener('click', () => alert('Função de edição para este gráfico ainda não implementada.'));
-    document.getElementById('btn-edit-topEquipment').addEventListener('click', () => alert('Função de edição para este gráfico ainda não implementada.'));
-    document.getElementById('btn-edit-analyst').addEventListener('click', () => alert('Função de edição para este gráfico ainda não implementada.'));
-    
+    // Adicionar event listener para o botão Editar MTTR
+    const btnEditMttr = document.getElementById('btn-edit-mttr');
+    if (btnEditMttr) btnEditMttr.addEventListener('click', openMTTRModal);
+
+    // Adicionar event listener para o botão Editar MTBF
+    const btnEditMtbf = document.getElementById('btn-edit-mtbf');
+    if (btnEditMtbf) btnEditMtbf.addEventListener('click', openMTBFModal);
+
     // Preencher anos disponíveis
     populateYearFilter();
     
+    // Event listeners para botões que podem não existir ainda
     const btnSaveEdit = document.getElementById('btn-save-edit');
     if (btnSaveEdit) btnSaveEdit.addEventListener('click', saveEditedData);
     
     const btnCancelEdit = document.getElementById('btn-cancel-edit');
     if (btnCancelEdit) btnCancelEdit.addEventListener('click', () => showView('dashboard'));
+    
+    const btnSaveSettings = document.getElementById('btn-save-settings');
+    if (btnSaveSettings) btnSaveSettings.addEventListener('click', saveSettings);
+    
+    const btnCancelSettings = document.getElementById('btn-cancel-settings');
+    if (btnCancelSettings) btnCancelSettings.addEventListener('click', () => showView('dashboard'));
 }
 
 function showView(viewName) {
@@ -244,7 +248,9 @@ function showView(viewName) {
         loadPredictiveAnalysis();
     } else if (viewName === 'edit') {
         loadEditForm();
-    } 
+    } else if (viewName === 'settings') {
+        loadSettingsForm();
+    }
 }
 
 function updateDateTime() {
@@ -273,13 +279,153 @@ function showLoading(show) {
 }
 
 async function initializeDashboard() {
-    await loadFromLocalStorage();
+    // Tentar carregar dados salvos do Firebase
+    await loadFromFirebase();
+    
+    // Se não há dados, mostrar view de upload
     if (!currentExcelData) {
         showView('upload');
     } else {
         showView('dashboard');
         await loadDashboardData();
     }
+    
+    // Adicionar botões de edição aos gráficos
+    addChartEditButtons();
+}
+
+function addChartEditButtons() {
+    const chartConfigs = {
+        'monthlyCostsChart': 'Custos Mensais',
+        'monthlyCorrectivesChart': 'Manutenções Corretivas',
+        'monthlyStatusChart': 'Status das Ordens',
+        'maintenanceTypeChart': 'Tipos de Manutenção',
+        'criticalityChart': 'Criticidade',
+        'topEquipmentChart': 'Top Equipamentos',
+        'analystChart': 'Dados por Analista'
+    };
+
+    // Adicionar event listeners para MTTR e MTBF
+    const btnEditMTTR = document.getElementById('btn-edit-mttr');
+    if (btnEditMTTR) {
+        btnEditMTTR.addEventListener('click', () => {
+            const mttrModal = document.getElementById('mttrModal');
+            if (mttrModal) mttrModal.classList.remove('hidden');
+        });
+    }
+
+    const btnEditMTBF = document.getElementById('btn-edit-mtbf');
+    if (btnEditMTBF) {
+        btnEditMTBF.addEventListener('click', () => {
+            const mtbfModal = document.getElementById('mtbfModal');
+            if (mtbfModal) mtbfModal.classList.remove('hidden');
+        });
+    };
+
+    Object.entries(chartConfigs).forEach(([chartId, title]) => {
+        const chartContainer = document.getElementById(chartId)?.closest('.bg-kpi-dark');
+        if (chartContainer) {
+            // Adicionar botão de edição
+            const editButton = document.createElement('button');
+            editButton.className = 'absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg';
+            editButton.innerHTML = `
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
+            `;
+            editButton.onclick = () => openChartEditModal(chartId, title);
+            
+            // Garantir que o container tem position relative
+            if (getComputedStyle(chartContainer).position === 'static') {
+                chartContainer.style.position = 'relative';
+            }
+            
+            chartContainer.appendChild(editButton);
+        }
+    });
+}
+
+function openChartEditModal(chartId, title) {
+    const modal = document.getElementById('chartEditModal');
+    const modalTitle = document.getElementById('chartEditModalTitle');
+    const modalContent = document.getElementById('chartEditModalContent');
+    
+    modalTitle.textContent = `Editar ${title}`;
+    modalContent.innerHTML = '';
+    
+    // Configurar campos baseados no tipo de gráfico
+    switch(chartId) {
+        case 'monthlyCostsChart':
+            mesesCompletos.forEach((mes, index) => {
+                const valor = charts[chartId]?.data?.datasets[0]?.data[index] || 0;
+                addModalField(mes, `cost${index}`, valor, 'R$');
+            });
+            break;
+        case 'monthlyCorrectivesChart':
+        case 'monthlyStatusChart':
+            mesesCompletos.forEach((mes, index) => {
+                const valor = charts[chartId]?.data?.datasets[0]?.data[index] || 0;
+                addModalField(mes, `value${index}`, valor, '');
+            });
+            break;
+        case 'maintenanceTypeChart':
+        case 'criticalityChart':
+            const labels = charts[chartId]?.data?.labels || [];
+            labels.forEach((label, index) => {
+                const valor = charts[chartId]?.data?.datasets[0]?.data[index] || 0;
+                addModalField(label, `value${index}`, valor, '');
+            });
+            break;
+        case 'topEquipmentChart':
+        case 'analystChart':
+            const items = charts[chartId]?.data?.labels || [];
+            items.forEach((item, index) => {
+                const valor = charts[chartId]?.data?.datasets[0]?.data[index] || 0;
+                addModalField(item, `value${index}`, valor, '');
+            });
+            break;
+    }
+    
+    // Armazenar o ID do gráfico atual para uso na função de atualização
+    modal.dataset.currentChart = chartId;
+    modal.classList.remove('hidden');
+}
+
+function addModalField(label, id, value, prefix = '') {
+    const modalContent = document.getElementById('chartEditModalContent');
+    const div = document.createElement('div');
+    div.innerHTML = `
+        <label for="${id}" class="block text-gray-300 text-sm font-medium mb-1">${label}</label>
+        <div class="relative">
+            ${prefix ? `<span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">${prefix}</span>` : ''}
+            <input type="number" id="${id}" value="${value}"
+                class="w-full p-2 ${prefix ? 'pl-8' : ''} rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+        </div>
+    `;
+    modalContent.appendChild(div);
+}
+
+function closeChartEditModal() {
+    const modal = document.getElementById('chartEditModal');
+    modal.classList.add('hidden');
+}
+
+function updateChartData() {
+    const modal = document.getElementById('chartEditModal');
+    const chartId = modal.dataset.currentChart;
+    const chart = charts[chartId];
+    
+    if (!chart) return;
+    
+    const inputs = modal.querySelectorAll('input[type="number"]');
+    const newData = Array.from(inputs).map(input => Number(input.value));
+    
+    // Atualizar dados do gráfico
+    chart.data.datasets[0].data = newData;
+    chart.update();
+    
+    // Fechar modal
+    closeChartEditModal();
 }
 
 function handleFileSelect(event) {
@@ -312,26 +458,67 @@ async function processExcelFile() {
     try {
         let jsonData = [];
         const fileExtension = file.name.split('.').pop().toLowerCase();
+        console.log('Extensão do arquivo:', fileExtension);
 
         if (fileExtension === 'csv') {
+            // Processa CSV diretamente
             jsonData = await new Promise((resolve, reject) => {
                 Papa.parse(file, {
                     header: true,
                     delimiter: ",",
                     dynamicTyping: true,
                     skipEmptyLines: true,
-                    complete: results => resolve(results.data),
-                    error: err => reject(err)
+                    complete: function(results) {
+                        if (results.errors.length) {
+                            console.warn('Avisos no CSV:', results.errors);
+                        }
+                        resolve(results.data);
+                    },
+                    error: function(err) {
+                        reject(err);
+                    }
                 });
             });
         } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+            console.log('Arquivo Excel detectado, iniciando conversão...');
+            // Converte XLSX/XLS para CSV e então processa
             const reader = new FileReader();
+            
             jsonData = await new Promise((resolve, reject) => {
-                reader.onload = e => {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    resolve(XLSX.utils.sheet_to_json(firstSheet));
+                reader.onload = async function(e) {
+                    try {
+                        console.log('Lendo arquivo Excel...');
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        console.log('Excel lido, obtendo primeira planilha...');
+                        // Pega primeira planilha
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        
+                        console.log('Convertendo para CSV...');
+                        // Converte para CSV
+                        const csvContent = XLSX.utils.sheet_to_csv(firstSheet);
+                        console.log('Conversão para CSV concluída:', csvContent.substring(0, 100) + '...');
+                        
+                        // Processa o CSV para JSON
+                        Papa.parse(csvContent, {
+                            header: true,
+                            delimiter: ",",
+                            dynamicTyping: true,
+                            skipEmptyLines: true,
+                            complete: function(results) {
+                                if (results.errors.length) {
+                                    console.warn('Avisos na conversão:', results.errors);
+                                }
+                                resolve(results.data);
+                            },
+                            error: function(err) {
+                                reject(err);
+                            }
+                        });
+                    } catch (error) {
+                        reject(error);
+                    }
                 };
                 reader.onerror = () => reject(reader.error);
                 reader.readAsArrayBuffer(file);
@@ -340,13 +527,26 @@ async function processExcelFile() {
             throw new Error("Formato de arquivo não suportado. Use .csv, .xlsx ou .xls");
         }
         
-        if (jsonData.length === 0) throw new Error("Arquivo está vazio.");
+        if (jsonData.length === 0) {
+            throw new Error("Arquivo está vazio.");
+        }
 
+        console.log('Dados processados:', jsonData.length, 'registros');
+        // Salvar dados processados
         currentExcelData = jsonData;
-        await saveToLocalStorage(jsonData, file.name);
+        
+        // Salvar no Firebase
+        await saveToFirebase(jsonData, file.name);
+
+        // Atualizar filtro de anos
         populateYearFilter();
+        
         statusEl.innerHTML = `<span class="text-green-500">✓ Arquivo processado com sucesso! ${jsonData.length} registros carregados.</span>`;
+        
+        // Processar dados e atualizar dashboard
         await loadDashboardData();
+        
+        // Voltar para o dashboard
         showView('dashboard');
         
     } catch (error) {
@@ -357,15 +557,63 @@ async function processExcelFile() {
     }
 }
 
-async function saveToLocalStorage(data, filename) {
-    localStorage.setItem('maintenanceData', JSON.stringify(data));
-    localStorage.setItem('maintenanceFilename', filename);
+async function saveToFirebase(data, filename) {
+    try {
+        if (!window.firebase) {
+            console.log('Firebase não configurado, salvando apenas localmente');
+            localStorage.setItem('maintenanceData', JSON.stringify(data));
+            localStorage.setItem('maintenanceFilename', filename);
+            return;
+        }
+
+        const { db, doc, setDoc } = window.firebase;
+        
+        // Salvar dados principais
+        await setDoc(doc(db, 'maintenance', 'currentData'), {
+            data: data,
+            filename: filename,
+            uploadDate: new Date().toISOString(),
+            recordCount: data.length
+        });
+        
+        console.log('Dados salvos no Firebase com sucesso');
+    } catch (error) {
+        console.error('Erro ao salvar no Firebase:', error);
+        // Fallback para localStorage
+        localStorage.setItem('maintenanceData', JSON.stringify(data));
+        localStorage.setItem('maintenanceFilename', filename);
+    }
 }
 
-async function loadFromLocalStorage() {
-    const data = localStorage.getItem('maintenanceData');
-    if (data) {
-        currentExcelData = JSON.parse(data);
+async function loadFromFirebase() {
+    try {
+        if (!window.firebase) {
+            console.log('Firebase não configurado, carregando do localStorage');
+            const data = localStorage.getItem('maintenanceData');
+            if (data) {
+                currentExcelData = JSON.parse(data);
+                return;
+            }
+            return;
+        }
+
+        const { db, doc, getDoc } = window.firebase;
+        
+        const docRef = doc(db, 'maintenance', 'currentData');
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            const savedData = docSnap.data();
+            currentExcelData = savedData.data;
+            console.log('Dados carregados do Firebase:', savedData.recordCount, 'registros');
+        }
+    } catch (error) {
+        console.error('Erro ao carregar do Firebase:', error);
+        // Fallback para localStorage
+        const data = localStorage.getItem('maintenanceData');
+        if (data) {
+            currentExcelData = JSON.parse(data);
+        }
     }
 }
 
@@ -375,19 +623,22 @@ function populateYearFilter() {
     const yearSelect = document.getElementById('filter-year');
     if (!yearSelect) return;
 
+    // Limpar opções existentes, mantendo a opção "Todos os Anos"
     yearSelect.innerHTML = '<option value="">Todos os Anos</option>';
 
+    // Coletar anos únicos dos dados
     const years = new Set();
     currentExcelData.forEach(row => {
         if (row['Data Manutenção']) {
-            const dataStr = String(row['Data Manutenção']);
+            const dataStr = row['Data Manutenção'];
             if (dataStr.includes('/')) {
-                const year = dataStr.split('/')[2];
-                if (year) years.add(year);
+                const [_, __, ano] = dataStr.split('/');
+                if (ano) years.add(ano);
             }
         }
     });
 
+    // Adicionar anos como opções
     Array.from(years).sort().forEach(year => {
         const option = document.createElement('option');
         option.value = year;
@@ -399,7 +650,11 @@ function populateYearFilter() {
 function handleFilterChange() {
     selectedYear = document.getElementById('filter-year').value;
     selectedMonth = document.getElementById('filter-month').value;
+
+    // Filtrar dados
     filteredData = filterData();
+
+    // Recarregar a view ativa
     if (!document.getElementById('dashboard-view').classList.contains('hidden')) {
         loadDashboardData();
     } else if (!document.getElementById('analytics-view').classList.contains('hidden')) {
@@ -413,23 +668,33 @@ function filterData() {
     return currentExcelData.filter(row => {
         if (!row['Data Manutenção']) return false;
 
-        const dataStr = String(row['Data Manutenção']);
+        const dataStr = row['Data Manutenção'];
         if (!dataStr.includes('/')) return false;
 
         const [dia, mes, ano] = dataStr.split('/');
         
+        // Aplicar filtro de ano
         if (selectedYear && ano !== selectedYear) return false;
-        if (selectedMonth !== '' && (parseInt(mes) - 1) !== parseInt(selectedMonth)) return false;
+        
+        // Aplicar filtro de mês
+        if (selectedMonth !== '') {
+            const monthIndex = parseInt(mes) - 1;
+            if (monthIndex !== parseInt(selectedMonth)) return false;
+        }
         
         return true;
     });
 }
 
 async function loadDashboardData() {
-    if (!currentExcelData) return;
+    if (!currentExcelData) {
+        console.log('Nenhum dado Excel disponível');
+        return;
+    }
 
     showLoading(true);
     try {
+        // Usar dados filtrados se houver filtros ativos, caso contrário usar todos os dados
         const dataToUse = (selectedYear || selectedMonth !== '') ? filterData() : currentExcelData;
         
         const kpis = calculateKPIs(dataToUse);
@@ -438,13 +703,13 @@ async function loadDashboardData() {
         const additionalData = calculateAdditionalChartsData(dataToUse);
         
         dashboardData = {
-            kpis,
+            kpis: kpis,
             monthly_costs: monthlyData.costs,
             monthly_correctives: monthlyData.correctives,
             monthly_status: monthlyData.statusByMonth,
             mttr: mttrMtbf.mttr,
             mtbf: mttrMtbf.mtbf,
-            additionalData
+            additionalData: additionalData
         };
         
         updateKPIs(dashboardData.kpis);
@@ -452,6 +717,7 @@ async function loadDashboardData() {
         
     } catch (error) {
         console.error('Erro:', error);
+        alert('Erro ao processar dados do dashboard: ' + error.message);
     } finally {
         showLoading(false);
     }
@@ -466,27 +732,68 @@ function calculateKPIs(data) {
         };
     }
     
-    const tipoCounts = data.reduce((acc, row) => {
+    // Contagem por tipo de manutenção
+    const tipoCounts = {};
+    data.forEach(row => {
         const tipo = row['Tipo de Manutenção'];
-        if (tipo !== undefined) acc[tipo] = (acc[tipo] || 0) + 1;
-        return acc;
-    }, {});
+        if (tipo !== undefined && tipo !== null) {
+            tipoCounts[tipo] = (tipoCounts[tipo] || 0) + 1;
+        }
+    });
     
     const kpis = {
         corretivas: tipoCounts[7] || 0,
         preventivas: tipoCounts[10] || 0,
         preditivas: tipoCounts[22] || 0,
         melhorias: tipoCounts[12] || 0,
-        equipamentos: new Set(data.map(row => row['Equipamento']).filter(Boolean)).size,
+        equipamentos: new Set(data.map(row => row['Equipamento']).filter(eq => eq)).size,
         osTotal: data.length,
-        preventivasVenc: data.filter(row => row['Tipo de Manutenção'] === 10 && new Date(row['Data Manutenção']) < new Date()).length,
-        custoTotal: data.reduce((acc, row) => {
-            const mat = parseFloat(String(row['Valor Material'] || '0').replace(',', '.')) || 0;
-            const mo = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.')) || 0;
-            return acc + mat + mo;
-        }, 0),
-        availability: Math.max(85, 99 - (tipoCounts[7] || 0) * 0.5)
+        preventivasVenc: 0
     };
+    
+    // Calcular preventivas vencidas
+    try {
+        const hoje = new Date();
+        const preventivas = data.filter(row => row['Tipo de Manutenção'] === 10);
+        const vencidas = preventivas.filter(row => {
+            const dataStr = row['Data Manutenção'];
+            if (!dataStr) return false;
+            
+            // Tentar diferentes formatos de data
+            let dataManutencao;
+            if (dataStr.includes('/')) {
+                const parts = dataStr.split('/');
+                if (parts.length === 3) {
+                    // Assumir formato DD/MM/YYYY
+                    dataManutencao = new Date(parts[2], parts[1] - 1, parts[0]);
+                }
+            } else {
+                dataManutencao = new Date(dataStr);
+            }
+            
+            return dataManutencao && !isNaN(dataManutencao.getTime()) && dataManutencao < hoje;
+        });
+        kpis.preventivasVenc = vencidas.length;
+    } catch (e) {
+        console.log('Erro ao calcular preventivas vencidas:', e);
+    }
+    
+    // Calcular custo total
+    try {
+        let custoTotal = 0;
+        data.forEach(row => {
+            const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+            const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+            custoTotal += valorMaterial + valorMaoObra;
+        });
+        kpis.custoTotal = custoTotal;
+    } catch (e) {
+        console.log('Erro ao calcular custo total:', e);
+        kpis.custoTotal = 0;
+    }
+    
+    // Calcular disponibilidade (simulada)
+    kpis.availability = Math.max(85, Math.min(99, 95 - (kpis.corretivas * 0.5)));
     
     return kpis;
 }
@@ -494,34 +801,84 @@ function calculateKPIs(data) {
 function calculateMonthlyData(data) {
     const costs = Array(12).fill(0);
     const correctives = Array(12).fill(0);
-    const statusByMonth = { 'Não Iniciada': Array(12).fill(0), 'Requisitada': Array(12).fill(0), 'Iniciada': Array(12).fill(0), 'Liberada': Array(12).fill(0), 'Suspensa': Array(12).fill(0) };
+    const statusByMonth = {
+        'Não Iniciada': Array(12).fill(0),
+        'Requisitada': Array(12).fill(0),
+        'Iniciada': Array(12).fill(0),
+        'Liberada': Array(12).fill(0),
+        'Suspensa': Array(12).fill(0)
+    };
     
-    if (!data || data.length === 0) return { costs, correctives, statusByMonth };
+    if (!data || data.length === 0) {
+        return { costs, correctives, statusByMonth };
+    }
     
-    data.forEach(row => {
-        const dataStr = String(row['Data Manutenção']);
-        if (dataStr && dataStr.includes('/')) {
-            const parts = dataStr.split('/');
-            if (parts.length === 3) {
-                const month = parseInt(parts[1]) - 1;
-                if (month >= 0 && month < 12) {
-                    const mat = parseFloat(String(row['Valor Material'] || '0').replace(',', '.')) || 0;
-                    const mo = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.')) || 0;
-                    costs[month] += mat + mo;
-                    if (row['Tipo de Manutenção'] === 7) correctives[month]++;
-                    const estado = row['Estado'] || 'Não Iniciada';
-                    if (statusByMonth[estado]) statusByMonth[estado][month]++;
+    try {
+        data.forEach(row => {
+            const dataStr = row['Data Manutenção'];
+            if (!dataStr) return;
+            
+            let dataManutencao;
+            if (dataStr.includes('/')) {
+                const parts = dataStr.split('/');
+                if (parts.length === 3) {
+                    // Assumir formato DD/MM/YYYY
+                    dataManutencao = new Date(parts[2], parts[1] - 1, parts[0]);
+                }
+            } else {
+                dataManutencao = new Date(dataStr);
+            }
+            
+            if (dataManutencao && !isNaN(dataManutencao.getTime())) {
+                const month = dataManutencao.getMonth(); // 0-11
+                
+                // Custos
+                const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+                const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+                costs[month] += valorMaterial + valorMaoObra;
+                
+                // Corretivas
+                if (row['Tipo de Manutenção'] === 7) {
+                    correctives[month]++;
+                }
+                
+                // Status das ordens por mês
+                const estado = row['Estado'] || 'Não Iniciada';
+                if (statusByMonth[estado]) {
+                    statusByMonth[estado][month]++;
                 }
             }
-        }
-    });
+        });
+    } catch (e) {
+        console.log('Erro ao calcular dados mensais:', e);
+    }
     
     return { costs, correctives, statusByMonth };
 }
 
 function calculateMTTRMTBF(data) {
-    const mttr = [8, 6, 4]; // Dados simulados
-    const mtbf = Array(12).fill(0).map((_, i) => 1000 - data.filter(r => new Date(r['Data Manutenção']).getMonth() === i).length * 10);
+    // MTTR e MTBF simulados baseados nos dados
+    const mttr = [8, 6, 4]; // Trimestral
+    const mtbf = Array(12).fill(0).map((_, i) => {
+        const monthData = data.filter(row => {
+            const dataStr = row['Data Manutenção'];
+            if (!dataStr) return false;
+            
+            let date;
+            if (dataStr.includes('/')) {
+                const parts = dataStr.split('/');
+                if (parts.length === 3) {
+                    date = new Date(parts[2], parts[1] - 1, parts[0]);
+                }
+            } else {
+                date = new Date(dataStr);
+            }
+            
+            return date && !isNaN(date.getTime()) && date.getMonth() === i;
+        });
+        return Math.max(100, 1000 - monthData.length * 10);
+    });
+    
     return { mttr, mtbf };
 }
 
@@ -532,142 +889,194 @@ function calculateAdditionalChartsData(data) {
     const equipmentCounts = {};
 
     data.forEach(row => {
+        // Tipo de Manutenção
         const tipoDesc = TIPO_MAPPING[row["Tipo de Manutenção"]] || "Outros";
         maintenanceTypeCounts[tipoDesc] = (maintenanceTypeCounts[tipoDesc] || 0) + 1;
-        if (row["Criticidade"]) criticalityCounts[row["Criticidade"]] = (criticalityCounts[row["Criticidade"]] || 0) + 1;
-        if (row["Nome do Analista"]) analystCounts[row["Nome do Analista"]] = (analystCounts[row["Nome do Analista"]] || 0) + 1;
-        if (row["Nome Equipamento"]) equipmentCounts[row["Nome Equipamento"]] = (equipmentCounts[row["Nome Equipamento"]] || 0) + 1;
+
+        // Criticidade
+        const criticidade = row["Criticidade"];
+        if (criticidade !== undefined && criticidade !== null) {
+            criticalityCounts[criticidade] = (criticalityCounts[criticidade] || 0) + 1;
+        }
+
+        // Analista
+        const analyst = row["Nome do Analista"];
+        if (analyst) {
+            analystCounts[analyst] = (analystCounts[analyst] || 0) + 1;
+        }
+
+        // Equipamento
+        const equipment = row["Nome Equipamento"];
+        if (equipment) {
+            equipmentCounts[equipment] = (equipmentCounts[equipment] || 0) + 1;
+        }
     });
 
-    const topEquipment = Object.entries(equipmentCounts)
-        .sort(([, a], [, b]) => b - a)
+    // Top 5 Equipamentos
+    const sortedEquipment = Object.entries(equipmentCounts)
+        .sort(([, countA], [, countB]) => countB - countA)
         .slice(0, 5)
         .map(([equipment, count]) => ({ equipment, count }));
 
-    return { maintenanceTypeCounts, criticalityCounts, analystCounts, topEquipment };
+    return {
+        maintenanceTypeCounts,
+        criticalityCounts,
+        analystCounts,
+        topEquipment: sortedEquipment
+    };
 }
 
 function updateKPIs(kpis) {
-    document.getElementById('kpi-corretivas').textContent = kpis.corretivas;
-    document.getElementById('kpi-preventivas').textContent = kpis.preventivas;
-    document.getElementById('kpi-preventivas-venc').textContent = kpis.preventivasVenc;
-    document.getElementById('kpi-preditivas').textContent = kpis.preditivas;
-    document.getElementById('kpi-melhorias').textContent = kpis.melhorias;
-    document.getElementById('kpi-equipamentos').textContent = kpis.equipamentos;
-    document.getElementById('kpi-os-total').textContent = kpis.osTotal;
-    document.getElementById('kpi-availability').textContent = `${Math.round(kpis.availability)}%`;
-    document.getElementById('kpi-custo-total').textContent = `R$ ${kpis.custoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+    const elements = {
+        'kpi-corretivas': kpis.corretivas || 0,
+        'kpi-preventivas': kpis.preventivas || 0,
+        'kpi-preventivas-venc': kpis.preventivasVenc || 0,
+        'kpi-preditivas': kpis.preditivas || 0,
+        'kpi-melhorias': kpis.melhorias || 0,
+        'kpi-equipamentos': kpis.equipamentos || 0,
+        'kpi-os-total': kpis.osTotal || 0,
+        'kpi-availability': Math.round(kpis.availability || 0) + '%',
+        'kpi-custo-total': 'R$ ' + (kpis.custoTotal || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})
+    };
+    
+    Object.entries(elements).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = value;
+    });
 }
 
 function createAllCharts(data) {
-    createMTTRChart(data.mttr);
-    createMTBFChart(data.mtbf);
-    createMonthlyCostsChart(data.monthly_costs);
-    createMonthlyCorrectivesChart(data.monthly_correctives);
-    createMonthlyStatusChart(data.monthly_status);
-    if (data.additionalData) {
-        createMaintenanceTypeChart(data.additionalData.maintenanceTypeCounts);
-        createCriticalityChart(data.additionalData.criticalityCounts);
-        createTopEquipmentChart(data.additionalData.topEquipment);
-        createAnalystChart(data.additionalData.analystCounts);
+    try {
+        createMTTRChart(data.mttr);
+        createMTBFChart(data.mtbf);
+        createMonthlyCostsChart(data.monthly_costs);
+        createMonthlyCorrectivesChart(data.monthly_correctives);
+        createMonthlyStatusChart(data.monthly_status);
+        
+        // Novos gráficos
+        if (data.additionalData) {
+            createMaintenanceTypeChart(data.additionalData.maintenanceTypeCounts);
+            createCriticalityChart(data.additionalData.criticalityCounts);
+            createTopEquipmentChart(data.additionalData.topEquipment);
+            createAnalystChart(data.additionalData.analystCounts);
+        }
+    } catch (error) {
+        console.error('Erro ao criar gráficos:', error);
     }
 }
 
-// --- Funções de Modal ---
-
 function openMTTRModal() {
     const modal = document.getElementById('mttrModal');
+    if (!modal) return;
+
+    // Preencher os campos com os valores atuais
     if (dashboardData && dashboardData.mttr) {
         document.getElementById('mttrQ1').value = dashboardData.mttr[0];
         document.getElementById('mttrQ2').value = dashboardData.mttr[1];
         document.getElementById('mttrQ3').value = dashboardData.mttr[2];
     }
+
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
 
 function closeMTTRModal() {
-    document.getElementById('mttrModal').classList.add('hidden');
+    const modal = document.getElementById('mttrModal');
+    if (!modal) return;
+
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
 }
 
 function updateMTTR() {
     const q1 = parseFloat(document.getElementById('mttrQ1').value);
     const q2 = parseFloat(document.getElementById('mttrQ2').value);
     const q3 = parseFloat(document.getElementById('mttrQ3').value);
-    if (isNaN(q1) || isNaN(q2) || isNaN(q3)) return alert('Valores inválidos.');
+
+    // Validar se todos os valores são números válidos
+    if (isNaN(q1) || isNaN(q2) || isNaN(q3)) {
+        alert('Por favor, preencha todos os campos com valores válidos');
+        return;
+    }
+
+    // Atualizar os dados
     if (dashboardData) {
         dashboardData.mttr = [q1, q2, q3];
+        // Recriar o gráfico
         createMTTRChart(dashboardData.mttr);
     }
+
+    // Fechar o modal
     closeMTTRModal();
 }
 
 function openMTBFModal() {
     const modal = document.getElementById('mtbfModal');
+    if (!modal) return;
+
     if (dashboardData && dashboardData.mtbf) {
-        const ids = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-        ids.forEach((id, index) => {
-            document.getElementById(`mtbf${id}`).value = dashboardData.mtbf[index];
+        const mtbfInputs = [
+            'mtbfJan', 'mtbfFev', 'mtbfMar', 'mtbfAbr', 'mtbfMai', 'mtbfJun',
+            'mtbfJul', 'mtbfAgo', 'mtbfSet', 'mtbfOut', 'mtbfNov', 'mtbfDez'
+        ];
+        mtbfInputs.forEach((id, index) => {
+            const inputElement = document.getElementById(id);
+            if (inputElement) {
+                inputElement.value = dashboardData.mtbf[index];
+            }
         });
     }
+
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 }
 
 function closeMTBFModal() {
-    document.getElementById('mtbfModal').classList.add('hidden');
+    const modal = document.getElementById('mtbfModal');
+    if (!modal) return;
+
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
 }
 
 function updateMTBF() {
-    const ids = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const newData = ids.map(id => parseFloat(document.getElementById(`mtbf${id}`).value));
-    if (newData.some(isNaN)) return alert('Valores inválidos.');
+    const mtbfInputs = [
+        'mtbfJan', 'mtbfFev', 'mtbfMar', 'mtbfAbr', 'mtbfMai', 'mtbfJun',
+        'mtbfJul', 'mtbfAgo', 'mtbfSet', 'mtbfOut', 'mtbfNov', 'mtbfDez'
+    ];
+    const newMtbfData = [];
+    let isValid = true;
+
+    mtbfInputs.forEach(id => {
+        const value = parseFloat(document.getElementById(id).value);
+        if (isNaN(value)) {
+            isValid = false;
+        }
+        newMtbfData.push(value);
+    });
+
+    if (!isValid) {
+        alert('Por favor, preencha todos os campos com valores numéricos válidos para MTBF.');
+        return;
+    }
+
     if (dashboardData) {
-        dashboardData.mtbf = newData;
+        dashboardData.mtbf = newMtbfData;
         createMTBFChart(dashboardData.mtbf);
     }
+
     closeMTBFModal();
 }
 
-function openMonthlyCostsModal() {
-    const modal = document.getElementById('monthlyCostsModal');
-    if (dashboardData && dashboardData.monthly_costs) {
-        const ids = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-        ids.forEach((id, index) => {
-            document.getElementById(`cost${id}`).value = dashboardData.monthly_costs[index];
-        });
-    }
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeMonthlyCostsModal() {
-    document.getElementById('monthlyCostsModal').classList.add('hidden');
-}
-
-function updateMonthlyCosts() {
-    const ids = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const newData = ids.map(id => parseFloat(document.getElementById(`cost${id}`).value));
-    if (newData.some(isNaN)) return alert('Valores inválidos.');
-    if (dashboardData) {
-        dashboardData.monthly_costs = newData;
-        createMonthlyCostsChart(dashboardData.monthly_costs);
-    }
-    closeMonthlyCostsModal();
-}
-
-// --- Funções de Gráfico ---
-
-function createOrUpdateChart(chartId, config) {
-    const ctx = document.getElementById(chartId);
-    if (!ctx) return;
-    if (charts[chartId]) charts[chartId].destroy();
-    charts[chartId] = new Chart(ctx.getContext('2d'), config);
-}
-
 function createMTTRChart(mttrData) {
+    const ctx = document.getElementById('mttrChart');
+    if (!ctx) return;
+    
+    if (charts.mttr) charts.mttr.destroy();
+    
     const mediaGeral = mttrData.reduce((a, b) => a + b, 0) / mttrData.length;
-    createOrUpdateChart('mttrChart', {
+    
+    charts.mttr = new Chart(ctx.getContext('2d'), {
         type: 'bar',
         data: {
             labels: ['Q1', 'Q2', 'Q3'],
@@ -675,6 +1084,8 @@ function createMTTRChart(mttrData) {
                 label: 'MTTR (horas)',
                 data: mttrData,
                 backgroundColor: accentColor,
+                borderColor: accentColor,
+                borderWidth: 1
             }, {
                 label: 'Média MTTR',
                 data: Array(3).fill(mediaGeral),
@@ -685,12 +1096,68 @@ function createMTTRChart(mttrData) {
                 fill: false
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'white' } } }, scales: { y: { beginAtZero: true, ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Tempo Médio de Reparo por Trimestre (MTTR)',
+                    color: 'white',
+                    font: { size: 16 }
+                },
+                legend: { 
+                    labels: { color: 'white', padding: 20 },
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(1)} horas`;
+                        },
+                        afterBody: function(context) {
+                            return [`\nMédia Geral: ${mediaGeral.toFixed(1)} horas`];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Horas',
+                        color: 'white'
+                    },
+                    ticks: { 
+                        color: 'white',
+                        callback: function(value) {
+                            return value.toFixed(1) + 'h';
+                        }
+                    },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                },
+                x: { 
+                    title: {
+                        display: true,
+                        text: 'Trimestre',
+                        color: 'white'
+                    },
+                    ticks: { color: 'white' },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                }
+            }
+        }
     });
 }
 
 function createMTBFChart(mtbfData) {
-    createOrUpdateChart('mtbfChart', {
+    const ctx = document.getElementById('mtbfChart');
+    if (!ctx) return;
+    
+    if (charts.mtbf) charts.mtbf.destroy();
+    
+    charts.mtbf = new Chart(ctx.getContext('2d'), {
         type: 'line',
         data: {
             labels: meses,
@@ -700,15 +1167,107 @@ function createMTBFChart(mtbfData) {
                 borderColor: accentColor,
                 backgroundColor: accentColor + '20',
                 fill: true,
-                tension: 0.4
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                datalabels: {
+                    align: 'end',
+                    anchor: 'end',
+                    formatter: function(value) {
+                        return value.toFixed(0);
+                    },
+                    color: 'white',
+                    font: { size: 10 },
+                    padding: 6
+                }
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'white' } } }, scales: { y: { beginAtZero: true, ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { 
+                    labels: { 
+                        color: 'white',
+                        font: { size: 11 },
+                        padding: 10,
+                        boxWidth: 15
+                    },
+                    position: 'bottom'
+                },
+                title: {
+                    display: true,
+                    text: 'Tempo Médio Entre Falhas (MTBF)',
+                    color: 'white',
+                    font: { size: 13 },
+                    padding: { bottom: 10 }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    padding: 10,
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(0)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Horas',
+                        color: 'white',
+                        font: { size: 11 }
+                    },
+                    ticks: { 
+                        color: 'white',
+                        font: { size: 10 },
+                        maxTicksLimit: 6,
+                        callback: function(value) {
+                            return value.toFixed(0);
+                        }
+                    },
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
+                },
+                x: { 
+                    title: {
+                        display: true,
+                        text: 'Mês',
+                        color: 'white',
+                        font: { size: 11 }
+                    },
+                    ticks: { 
+                        color: 'white',
+                        font: { size: 10 }
+                    },
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
+                }
+            }
+        }
     });
 }
 
 function createMonthlyCostsChart(costsData) {
-    createOrUpdateChart('monthlyCostsChart', {
+    const ctx = document.getElementById('monthlyCostsChart');
+    if (!ctx) return;
+    
+    if (charts.costs) charts.costs.destroy();
+    
+    const custoTotal = costsData.reduce((a, b) => a + b, 0);
+    const mediaMensal = custoTotal / costsData.length;
+    
+    charts.costs = new Chart(ctx.getContext('2d'), {
         type: 'bar',
         data: {
             labels: meses,
@@ -716,14 +1275,143 @@ function createMonthlyCostsChart(costsData) {
                 label: 'Custos Mensais',
                 data: costsData,
                 backgroundColor: '#10b981',
+                borderColor: '#10b981',
+                borderWidth: 1,
+                order: 2,
+                datalabels: {
+                    align: 'end',
+                    anchor: 'end',
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0;
+                    },
+                    formatter: function(value) {
+                        if (value >= 1000000) {
+                            return (value / 1000000).toFixed(1) + 'M';
+                        }
+                        return (value / 1000).toFixed(0) + 'K';
+                    },
+                    color: 'white',
+                    font: {
+                        size: 10
+                    }
+                }
+            }, {
+                label: 'Média Mensal',
+                data: Array(12).fill(mediaMensal),
+                type: 'line',
+                borderColor: '#f59e0b',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: false,
+                order: 1,
+                datalabels: {
+                    display: false
+                }
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'white' } } }, scales: { y: { beginAtZero: true, ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            barPercentage: 0.6,
+            categoryPercentage: 0.7,
+            plugins: {
+                title: {
+                    display: true,
+                    text: [
+                        'Custos Mensais de Manutenção',
+                        `Total: ${(custoTotal >= 1000000 ? (custoTotal/1000000).toFixed(1) + 'M' : (custoTotal/1000).toFixed(0) + 'K')}`,
+                        `Média: ${(mediaMensal >= 1000000 ? (mediaMensal/1000000).toFixed(1) + 'M' : (mediaMensal/1000).toFixed(0) + 'K')}`
+                    ],
+                    color: 'white',
+                    font: { size: 13 },
+                    padding: { bottom: 10 }
+                },
+                legend: { 
+                    labels: { 
+                        color: 'white', 
+                        padding: 10,
+                        font: { size: 11 },
+                        boxWidth: 15
+                    },
+                    position: 'bottom'
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.parsed.y;
+                            let formattedValue;
+                            if (value >= 1000000) {
+                                formattedValue = 'R$ ' + (value/1000000).toFixed(1) + 'M';
+                            } else {
+                                formattedValue = 'R$ ' + (value/1000).toFixed(0) + 'K';
+                            }
+                            return `${context.dataset.label}: ${formattedValue}`;
+                        },
+                        afterBody: function(tooltipItems) {
+                            const dataIndex = tooltipItems[0].dataIndex;
+                            const percentual = (costsData[dataIndex] / custoTotal * 100).toFixed(1);
+                            return [`\nRepresenta ${percentual}% do custo total`];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Valor',
+                        color: 'white',
+                        padding: { bottom: 10 }
+                    },
+                    position: 'left',
+                    ticks: { 
+                        color: 'white',
+                        callback: function(value) {
+                            if (value >= 1000000) {
+                                return (value / 1000000).toFixed(1) + 'M';
+                            } else if (value >= 1000) {
+                                return (value / 1000).toFixed(0) + 'K';
+                            }
+                            return value;
+                        },
+                        maxTicksLimit: 5,
+                        padding: 10,
+                        font: {
+                            size: 10
+                        }
+                    },
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
+                },
+                x: { 
+                    title: {
+                        display: true,
+                        text: 'Mês',
+                        color: 'white'
+                    },
+                    ticks: { color: 'white' },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                }
+            }
+        }
     });
 }
 
 function createMonthlyCorrectivesChart(correctivesData) {
-    createOrUpdateChart('monthlyCorrectivesChart', {
+    const ctx = document.getElementById('monthlyCorrectivesChart');
+    if (!ctx) return;
+    
+    if (charts.correctives) charts.correctives.destroy();
+    
+    const mediaCorretivas = correctivesData.reduce((a, b) => a + b, 0) / correctivesData.length;
+    const totalCorretivas = correctivesData.reduce((a, b) => a + b, 0);
+    
+    charts.correctives = new Chart(ctx.getContext('2d'), {
         type: 'line',
         data: {
             labels: meses,
@@ -733,154 +1421,888 @@ function createMonthlyCorrectivesChart(correctivesData) {
                 borderColor: '#ef4444',
                 backgroundColor: '#ef444420',
                 fill: true,
-                tension: 0.4
+                tension: 0.4,
+                order: 2,
+                borderWidth: 2,
+                datalabels: {
+                    align: 'end',
+                    anchor: 'end',
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0;
+                    },
+                    formatter: function(value) {
+                        return value.toFixed(0);
+                    },
+                    color: 'white',
+                    font: {
+                        size: 10
+                    },
+                    padding: 6
+                }
+            }, {
+                label: 'Média Mensal',
+                data: Array(12).fill(mediaCorretivas),
+                borderColor: '#f59e0b',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                fill: false,
+                order: 1,
+                datalabels: {
+                    display: false
+                }
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'white' } } }, scales: { y: { beginAtZero: true, ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: [
+                        'Manutenções Corretivas por Mês',
+                        `Total: ${totalCorretivas} | Média: ${mediaCorretivas.toFixed(0)}`
+                    ],
+                    color: 'white',
+                    font: { size: 13 },
+                    padding: { bottom: 10 }
+                },
+                legend: { 
+                    labels: { 
+                        color: 'white',
+                        padding: 10,
+                        font: { size: 11 },
+                        boxWidth: 15
+                    },
+                    position: 'bottom'
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(0)}`;
+                        },
+                        afterBody: function(tooltipItems) {
+                            const dataIndex = tooltipItems[0].dataIndex;
+                            const percentual = (correctivesData[dataIndex] / totalCorretivas * 100).toFixed(1);
+                            return [`\nRepresenta ${percentual}% do total de O.S`];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Quantidade',
+                        color: 'white',
+                        padding: { bottom: 10 }
+                    },
+                    ticks: { 
+                        color: 'white',
+                        callback: function(value) {
+                            return value.toFixed(0);
+                        },
+                        maxTicksLimit: 5,
+                        padding: 10,
+                        font: {
+                            size: 10
+                        }
+                    },
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
+                },
+                x: { 
+                    title: {
+                        display: true,
+                        text: 'Mês',
+                        color: 'white',
+                        padding: { top: 10 }
+                    },
+                    ticks: { 
+                        color: 'white',
+                        font: {
+                            size: 10
+                        }
+                    },
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
+                }
+            }
+        }
     });
 }
 
 function createMonthlyStatusChart(statusData) {
-    const colors = { 'Não Iniciada': '#ef4444', 'Requisitada': '#f59e0b', 'Iniciada': '#10b981', 'Liberada': '#3b82f6', 'Suspensa': '#8b5cf6' };
-    const datasets = Object.keys(statusData).map(status => ({
-        label: status,
-        data: statusData[status],
-        borderColor: colors[status] || '#6b7280',
-        fill: false,
-        tension: 0.4
-    }));
-    createOrUpdateChart('monthlyStatusChart', {
+    const ctx = document.getElementById('monthlyStatusChart');
+    if (!ctx) return;
+    
+    if (charts.status) charts.status.destroy();
+    
+    const datasets = [];
+    const colors = {
+        'Não Iniciada': '#ef4444',
+        'Requisitada': '#f59e0b', 
+        'Iniciada': '#10b981',
+        'Liberada': '#3b82f6',
+        'Suspensa': '#8b5cf6'
+    };
+    
+    Object.keys(statusData).forEach(status => {
+        datasets.push({
+            label: status,
+            data: statusData[status],
+            borderColor: colors[status] || '#6b7280',
+            backgroundColor: (colors[status] || '#6b7280') + '20',
+            fill: false,
+            tension: 0.4
+        });
+    });
+    
+    charts.status = new Chart(ctx.getContext('2d'), {
         type: 'line',
-        data: { labels: meses, datasets },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'white' } } }, scales: { y: { beginAtZero: true, stacked: true, ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.1)' } } } }
+        data: {
+            labels: meses,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { 
+                    labels: { 
+                        color: 'white',
+                        font: { size: 11 },
+                        boxWidth: 15,
+                        padding: 8
+                    },
+                    position: 'top',
+                    maxWidth: 800
+                },
+                title: {
+                    display: true,
+                    text: 'Status das Ordens de Manutenção',
+                    color: 'white',
+                    font: { size: 14 },
+                    padding: { bottom: 10 }
+                },
+                datalabels: {
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0;
+                    },
+                    color: 'white',
+                    font: {
+                        size: 10
+                    },
+                    align: 'end',
+                    anchor: 'end'
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    ticks: { color: 'white' },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                },
+                x: { 
+                    ticks: { color: 'white' },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                }
+            }
+        }
     });
 }
 
 function createMaintenanceTypeChart(data) {
-    createOrUpdateChart("maintenanceTypeChart", {
+    const ctx = document.getElementById("maintenanceTypeChart");
+    if (!ctx) return;
+    
+    if (charts.maintenanceType) charts.maintenanceType.destroy();
+
+    const labels = Object.keys(data);
+    const values = Object.values(data);
+    const total = values.reduce((a, b) => a + b, 0);
+
+    // Calcular porcentagens e ordenar os dados
+    const dataWithPercentages = labels.map((label, index) => ({
+        label,
+        value: values[index],
+        percentage: (values[index] / total * 100)
+    })).sort((a, b) => b.percentage - a.percentage);
+
+    // Criar dados para o gráfico de velocímetro
+    const gaugeData = {
+        labels: dataWithPercentages.map(d => d.label),
+        datasets: [{
+            data: dataWithPercentages.map(d => d.percentage),
+            backgroundColor: [
+                "#00f6ff", "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
+                "#8b5cf6", "#ec4899", "#f97316", "#6b7280", "#a855f7"
+            ],
+            borderColor: '#1e293b',
+            borderWidth: 2,
+            circumference: 180, // Meio círculo
+            rotation: 270 // Começa do lado esquerdo
+        }]
+    };
+
+    charts.maintenanceType = new Chart(ctx.getContext('2d'), {
         type: "doughnut",
-        data: {
-            labels: Object.keys(data),
-            datasets: [{
-                data: Object.values(data),
-                backgroundColor: ["#00f6ff", "#10b981", "#f59e0b", "#ef4444", "#3b82f6", "#8b5cf6"],
-                hoverOffset: 4
-            }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: "white" } } } }
+        data: gaugeData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: { 
+                legend: { 
+                    display: true,
+                    position: 'right',
+                    labels: { 
+                        color: "white",
+                        font: { size: 11 },
+                        boxWidth: 12,
+                        padding: 8,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        filter: function(legendItem, data) {
+                            return data.datasets[0].data[legendItem.index] > 1; // Só mostra itens com mais de 1%
+                        },
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            return data.labels.map((label, i) => ({
+                                text: `${label} (${data.datasets[0].data[i].toFixed(1)}%)`,
+                                fillStyle: data.datasets[0].backgroundColor[i],
+                                hidden: false,
+                                index: i,
+                                fontColor: 'white'
+                            }));
+                        }
+                    },
+                    align: 'center',
+                    maxWidth: 200,
+                    maxHeight: 200
+                },
+                title: {
+                    display: true,
+                    text: ['Distribuição de Ordens por Tipo', `Total: ${total.toLocaleString()} ordens`],
+                    color: 'white',
+                    font: { size: 13 },
+                    padding: { bottom: 15 }
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    padding: 10,
+                    callbacks: {
+                        label: function(context) {
+                            const dataWithPercentages = context.chart.data.labels.map((label, i) => ({
+                                label,
+                                value: data[label],
+                                percentage: context.chart.data.datasets[0].data[i]
+                            }));
+                            const item = dataWithPercentages[context.dataIndex];
+                            return `${item.label}: ${item.value.toLocaleString()} (${item.percentage.toFixed(1)}%)`;
+                        }
+                    }
+                },
+                datalabels: {
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 4; // Só mostra rótulos para valores > 4%
+                    },
+                    color: 'white',
+                    font: { size: 10, weight: 'bold' },
+                    formatter: function(value, context) {
+                        return value.toFixed(1) + '%';
+                    },
+                    align: 'end',
+                    anchor: 'end',
+                    offset: 10
+                }
+            },
+            layout: {
+                padding: {
+                    top: 30,
+                    bottom: 30,
+                    left: 20,
+                    right: 20
+                }
+            },
+            elements: {
+                arc: {
+                    borderWidth: 0
+                }
+            }
+        }
     });
+
+    // Adicionar texto central com o maior valor
+    const maxItem = dataWithPercentages[0];
+    if (maxItem && ctx) {
+        const ctxCenter = ctx.getContext('2d');
+        ctxCenter.save();
+        ctxCenter.fillStyle = 'white';
+        
+        // Ajustar o tamanho do texto baseado no comprimento do label
+        const labelFontSize = maxItem.label.length > 12 ? 16 : 20;
+        
+        // Posicionar os textos mais separados
+        ctxCenter.font = `bold ${labelFontSize}px Arial`;
+        ctxCenter.textAlign = 'center';
+        ctxCenter.textBaseline = 'middle';
+        ctxCenter.fillText(`${maxItem.label}`, ctx.width / 2, ctx.height / 2 - 25);
+        
+        ctxCenter.font = 'bold 28px Arial';
+        ctxCenter.fillText(`${maxItem.percentage.toFixed(1)}%`, ctx.width / 2, ctx.height / 2 + 25);
+        
+        ctxCenter.restore();
+    }
 }
 
 function createCriticalityChart(data) {
-    createOrUpdateChart("criticalityChart", {
+    const ctx = document.getElementById("criticalityChart");
+    if (!ctx) return;
+    
+    if (charts.criticality) charts.criticality.destroy();
+
+    const labels = Object.keys(data).sort();
+    const values = labels.map(key => data[key]);
+
+    charts.criticality = new Chart(ctx.getContext('2d'), {
         type: "bar",
         data: {
-            labels: Object.keys(data),
+            labels: labels,
             datasets: [{
                 label: "Número de Ordens",
-                data: Object.values(data),
-                backgroundColor: accentColor
+                data: values,
+                backgroundColor: accentColor,
+                borderColor: accentColor,
+                borderWidth: 1
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } }, x: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: "white" } } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: "white" },
+                    grid: { color: "rgba(255,255,255,0.1)" }
+                },
+                x: {
+                    ticks: { color: "white" },
+                    grid: { color: "rgba(255,255,255,0.1)" }
+                }
+            }
+        }
     });
 }
 
 function createTopEquipmentChart(data) {
-    createOrUpdateChart("topEquipmentChart", {
+    const ctx = document.getElementById("topEquipmentChart");
+    if (!ctx) return;
+    
+    if (charts.topEquipment) charts.topEquipment.destroy();
+
+    const labels = data.map(item => item.equipment);
+    const values = data.map(item => item.count);
+
+    charts.topEquipment = new Chart(ctx.getContext('2d'), {
         type: "bar",
         data: {
-            labels: data.map(item => item.equipment),
+            labels: labels,
             datasets: [{
                 label: "Número de Ordens",
-                data: data.map(item => item.count),
-                backgroundColor: accentColor
+                data: values,
+                backgroundColor: accentColor,
+                borderColor: accentColor,
+                borderWidth: 1
             }]
         },
-        options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } }, x: { ticks: { color: "white" }, grid: { color: "rgba(255,255,255,0.1)" } } } }
+        options: {
+            indexAxis: "y", // Makes it a horizontal bar chart
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: "white" } } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: "white" },
+                    grid: { color: "rgba(255,255,255,0.1)" }
+                },
+                x: {
+                    ticks: { color: "white" },
+                    grid: { color: "rgba(255,255,255,0.1)" }
+                }
+            }
+        }
     });
 }
 
 function createAnalystChart(data) {
-    createOrUpdateChart("analystChart", {
-        type: "pie",
+    const ctx = document.getElementById("analystChart");
+    if (!ctx) return;
+    
+    if (charts.analyst) charts.analyst.destroy();
+
+    const labels = Object.keys(data);
+    const values = Object.values(data);
+
+    charts.analyst = new Chart(ctx.getContext('2d'), {
+        type: "doughnut",
         data: {
-            labels: Object.keys(data),
+            labels: labels,
             datasets: [{
-                data: Object.values(data),
-                backgroundColor: ["#00f6ff", "#10b981", "#f59e0b", "#ef4444", "#3b82f6", "#8b5cf6"],
+                data: values,
+                backgroundColor: [
+                    "#00f6ff", "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
+                    "#8b5cf6", "#ec4899", "#f97316", "#6b7280", "#a855f7"
+                ],
                 hoverOffset: 4
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: "white" } } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: "white" } } }
+        }
     });
 }
 
 function filterEquipmentTable(searchText) {
-    const rows = document.querySelectorAll('#equipment-table tbody tr');
+    const table = document.getElementById('equipment-table');
+    if (!table) return;
+
+    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
     searchText = searchText.toLowerCase();
-    rows.forEach(row => {
-        const code = row.cells[1].textContent.toLowerCase();
-        row.style.display = code.includes(searchText) ? '' : 'none';
-    });
+
+    for (let row of rows) {
+        const codeCell = row.getElementsByTagName('td')[1]; // índice 1 é a coluna do código
+        if (codeCell) {
+            const code = codeCell.textContent || codeCell.innerText;
+            if (code.toLowerCase().includes(searchText)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    }
 }
 
 function loadEquipmentAnalysis() {
     if (!currentExcelData) return;
     
-    const dataToUse = (selectedYear || selectedMonth !== '') ? filterData() : currentExcelData;
-    const equipmentStats = {};
-    
-    dataToUse.forEach(row => {
-        const name = row['Nome Equipamento'];
-        if (!name) return;
-        if (!equipmentStats[name]) {
-            equipmentStats[name] = { name, code: row['Equipamento'] || 'N/A', tag: row['Tag'] || 'N/A', total_orders: 0, corrective: 0, preventive: 0, cost: 0 };
+    try {
+        // Análise por equipamento
+        const equipmentStats = {};
+        
+        // Usar dados filtrados se houver filtros ativos, caso contrário usar todos os dados
+        const dataToUse = (selectedYear || selectedMonth !== '') ? filterData() : currentExcelData;
+        
+        dataToUse.forEach(row => {
+            const equipmentName = row['Nome Equipamento'];
+            if (!equipmentName) return;
+            
+            if (!equipmentStats[equipmentName]) {
+                equipmentStats[equipmentName] = {
+                    name: equipmentName,
+                    code: row['Equipamento'] || 'N/A',
+                    tag: row['Tag'] || row['Descrição do Tag'] || 'N/A',
+                    total_orders: 0,
+                    corrective: 0,
+                    preventive: 0,
+                    cost: 0
+                };
+            }
+            
+            equipmentStats[equipmentName].total_orders++;
+            
+            if (row['Tipo de Manutenção'] === 7) {
+                equipmentStats[equipmentName].corrective++;
+            } else if (row['Tipo de Manutenção'] === 10) {
+                equipmentStats[equipmentName].preventive++;
+            }
+            
+            const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+            const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+            equipmentStats[equipmentName].cost += valorMaterial + valorMaoObra;
+        });
+        
+        // Converter para array e ordenar por custo
+        const equipmentArray = Object.values(equipmentStats)
+            .sort((a, b) => b.cost - a.cost);
+        
+        const content = document.getElementById('equipment-analysis-content');
+        if (content) {
+            content.innerHTML = `
+                <h3 class="text-white font-semibold mb-4">Análise de Equipamentos</h3>
+                <div class="mb-4">
+                    <input type="text" 
+                           id="equipment-search" 
+                           placeholder="Buscar por código..." 
+                           class="p-2 rounded bg-gray-700 text-white border border-gray-600 w-64"
+                           oninput="filterEquipmentTable(this.value)">
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-white" id="equipment-table">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="text-left p-2">Equipamento</th>
+                                <th class="text-left p-2">Código</th>
+                                <th class="text-left p-2">Tag</th>
+                                <th class="text-left p-2">Total O.S</th>
+                                <th class="text-left p-2">Corretivas</th>
+                                <th class="text-left p-2">Preventivas</th>
+                                <th class="text-left p-2">Custo Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${equipmentArray.map(eq => `
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 text-sm">${eq.name}</td>
+                                    <td class="p-2 text-sm">${eq.code}</td>
+                                    <td class="p-2 text-sm">${eq.tag}</td>
+                                    <td class="p-2">${eq.total_orders}</td>
+                                    <td class="p-2 text-red-400">${eq.corrective}</td>
+                                    <td class="p-2 text-green-400">${eq.preventive}</td>
+                                    <td class="p-2">R$ ${eq.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
         }
-        equipmentStats[name].total_orders++;
-        if (row['Tipo de Manutenção'] === 7) equipmentStats[name].corrective++;
-        if (row['Tipo de Manutenção'] === 10) equipmentStats[name].preventive++;
-        const mat = parseFloat(String(row['Valor Material'] || '0').replace(',', '.')) || 0;
-        const mo = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.')) || 0;
-        equipmentStats[name].cost += mat + mo;
-    });
-    
-    const equipmentArray = Object.values(equipmentStats).sort((a, b) => b.cost - a.cost);
-    const content = document.getElementById('equipment-analysis-content');
-    content.innerHTML = `
-        <h3 class="text-white font-semibold mb-4">Análise de Equipamentos</h3>
-        <input type="text" id="equipment-search" placeholder="Buscar por código..." class="p-2 rounded bg-gray-700 text-white border border-gray-600 w-full sm:w-64 mb-4" oninput="filterEquipmentTable(this.value)">
-        <div class="overflow-x-auto">
-            <table class="w-full text-white" id="equipment-table">
-                <thead><tr class="border-b border-gray-600">
-                    <th class="text-left p-2">Equipamento</th><th class="text-left p-2">Código</th><th class="text-left p-2">Tag</th>
-                    <th class="text-left p-2">Total O.S</th><th class="text-left p-2">Corretivas</th><th class="text-left p-2">Preventivas</th><th class="text-left p-2">Custo Total</th>
-                </tr></thead>
-                <tbody>${equipmentArray.map(eq => `
-                    <tr class="border-b border-gray-700 hover:bg-kpi-dark">
-                        <td class="p-2 text-sm">${eq.name}</td><td class="p-2 text-sm">${eq.code}</td><td class="p-2 text-sm">${eq.tag}</td>
-                        <td class="p-2">${eq.total_orders}</td><td class="p-2 text-red-400">${eq.corrective}</td><td class="p-2 text-green-400">${eq.preventive}</td>
-                        <td class="p-2">R$ ${eq.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                    </tr>`).join('')}
-                </tbody>
-            </table>
-        </div>`;
+    } catch (error) {
+        console.error('Erro ao carregar análise de equipamentos:', error);
+    }
 }
 
-// Outras funções (preditiva, edição de dados, etc.) permanecem as mesmas.
 function loadPredictiveAnalysis() {
-    // A lógica existente permanece aqui
+    if (!currentExcelData) return;
+
+    try {
+        // Análise de risco por equipamento
+        const equipmentStats = {};
+
+        currentExcelData.forEach(row => {
+            const equipment = row['Nome Equipamento'];
+            if (!equipment) return;
+
+            if (!equipmentStats[equipment]) {
+                equipmentStats[equipment] = {
+                    name: equipment,
+                    total_orders: 0,
+                    corrective_count: 0,
+                    cost: 0,
+                    criticality_sum: 0,
+                    criticality_count: 0
+                };
+            }
+
+            equipmentStats[equipment].total_orders++;
+
+            if (row['Tipo de Manutenção'] === 7) {
+                equipmentStats[equipment].corrective_count++;
+            }
+
+            const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+            const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+            equipmentStats[equipment].cost += valorMaterial + valorMaoObra;
+
+            const criticality = parseInt(row['Criticidade']);
+            if (!isNaN(criticality)) {
+                equipmentStats[equipment].criticality_sum += criticality;
+                equipmentStats[equipment].criticality_count++;
+            }
+        });
+
+        // Calcular médias e ratios
+        const equipmentArray = Object.values(equipmentStats).map(eq => {
+            return {
+                ...eq,
+                corrective_ratio: eq.total_orders > 0 ? (eq.corrective_count / eq.total_orders) * 100 : 0,
+                avg_criticality: eq.criticality_count > 0 ? eq.criticality_sum / eq.criticality_count : 0
+            };
+        });
+
+        // Normalizar os valores para uma escala de 0-100
+        const maxCost = Math.max(...equipmentArray.map(eq => eq.cost));
+        const maxCriticality = Math.max(...equipmentArray.map(eq => eq.avg_criticality));
+
+        const normalizedArray = equipmentArray.map(eq => {
+            const cost_normalized = maxCost > 0 ? (eq.cost / maxCost) * 100 : 0;
+            const criticality_normalized = maxCriticality > 0 ? (eq.avg_criticality / maxCriticality) * 100 : 0;
+            return {
+                ...eq,
+                cost_normalized,
+                criticality_normalized
+            };
+        });
+
+        // Calcular score de risco com pesos
+        const weightedArray = normalizedArray.map(eq => {
+            const risk_score = (0.5 * eq.corrective_ratio) + (0.3 * eq.cost_normalized) + (0.2 * eq.criticality_normalized);
+            return {
+                ...eq,
+                risk_score
+            };
+        });
+
+        // Ordenar por score de risco e pegar o top 10
+        const riskArray = weightedArray.sort((a, b) => b.risk_score - a.risk_score).slice(0, 10);
+
+        const content = document.getElementById('predictive-analysis-content');
+        if (content) {
+            content.innerHTML = `
+                <h3 class="text-white font-semibold mb-4">Top 10 Equipamentos com Maior Risco</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-white">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="text-left p-2">Equipamento</th>
+                                <th class="text-left p-2">Score de Risco</th>
+                                <th class="text-left p-2">Taxa de Corretivas (%)</th>
+                                <th class="text-left p-2">Custo Total</th>
+                                <th class="text-left p-2">Criticidade Média</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${riskArray.map(eq => `
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 text-sm">${eq.name}</td>
+                                    <td class="p-2 font-bold text-red-400">${eq.risk_score.toFixed(2)}</td>
+                                    <td class="p-2">${eq.corrective_ratio.toFixed(2)}%</td>
+                                    <td class="p-2">R$ ${eq.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                    <td class="p-2">${eq.avg_criticality.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Erro ao carregar análise preditiva:', error);
+        const content = document.getElementById('predictive-analysis-content');
+        if (content) {
+            content.innerHTML = `<p class="text-red-500">Erro ao carregar a análise preditiva: ${error.message}</p>`;
+        }
+    }
 }
+
+// Placeholder removido pois está duplicado abaixo
 
 function loadEditForm() {
-    // A lógica existente permanece aqui
+    if (!currentExcelData || !currentExcelData.length) {
+        showMessage('warning', 'Nenhum dado disponível para edição. Por favor, faça o upload de um arquivo primeiro.');
+        showView('dashboard');
+        return;
+    }
+
+    console.log('Dados para edição:', currentExcelData); // Debug
+
+    // Atualizar os cabeçalhos da tabela primeiro
+    const headers = document.querySelector('#edit-table thead tr');
+    headers.innerHTML = `
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Data Manutenção</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Equipamento</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Tipo de Manutenção</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Críticidade</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Analista</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Estado</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Custo Material</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Custo M.O.</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Ações</th>
+    `;
+
+    const tableBody = document.getElementById('edit-table-body');
+    tableBody.innerHTML = '';
+
+    currentExcelData.forEach((row, index) => {
+        const tr = document.createElement('tr');
+        tr.className = `${index % 2 === 0 ? 'bg-kpi-main/50' : 'bg-kpi-main/30'} hover:bg-kpi-accent/10 transition-colors duration-200`;
+        tr.setAttribute('data-index', index);
+
+        // Tratamento da data
+        let dataValue = '';
+        if (row['Data Manutenção']) {
+            // Tentar converter a data para o formato correto
+            const dataStr = row['Data Manutenção'];
+            if (dataStr.includes('/')) {
+                const [dia, mes, ano] = dataStr.split('/');
+                dataValue = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+            } else {
+                const date = new Date(dataStr);
+                if (!isNaN(date.getTime())) {
+                    dataValue = date.toISOString().split('T')[0];
+                }
+            }
+        }
+        
+        tr.innerHTML = `
+            <td class="px-4 py-2">
+                <input type="date" class="bg-transparent border border-gray-600 rounded-lg px-3 py-2 w-full text-white focus:border-kpi-accent focus:ring-1 focus:ring-kpi-accent transition-all duration-200 hover:border-gray-400"
+                       value="${dataValue}" data-field="Data Manutenção">
+            </td>
+            <td class="px-4 py-2">
+                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                       value="${row['Nome Equipamento'] || ''}" data-field="Nome Equipamento">
+            </td>
+            <td class="px-4 py-2">
+                <select class="bg-transparent border border-gray-600 rounded-lg px-3 py-2 w-full text-white focus:border-kpi-accent focus:ring-1 focus:ring-kpi-accent transition-all duration-200 hover:border-gray-400" data-field="Tipo de Manutenção">
+                    ${Object.entries(TIPO_MAPPING).map(([value, label]) => 
+                        `<option value="${value}" ${row['Tipo de Manutenção'] == value ? 'selected' : ''}>${label}</option>`
+                    ).join('')}
+                </select>
+            </td>
+            <td class="px-4 py-2">
+                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                       value="${row['Criticidade'] || ''}" data-field="Criticidade">
+            </td>
+            <td class="px-4 py-2">
+                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                       value="${row['Nome do Analista'] || ''}" data-field="Nome do Analista">
+            </td>
+            <td class="px-4 py-2">
+                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                       value="${row['Estado'] || ''}" data-field="Estado">
+            </td>
+            <td class="px-4 py-2">
+                <input type="number" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                       value="${row['Valor Material'] || '0'}" data-field="Valor Material" step="0.01" min="0">
+            </td>
+            <td class="px-4 py-2">
+                <input type="number" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                       value="${row['Valor Mão de Obra'] || '0'}" data-field="Valor Mão de Obra" step="0.01" min="0">
+            </td>
+            <td class="px-4 py-2">
+                <button class="text-red-400 hover:text-red-300 transition-colors duration-200 p-2 rounded-lg hover:bg-red-500/10" 
+                        onclick="deleteRow(${index})"
+                        title="Excluir registro">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(tr);
+    });
+}
+
+function deleteRow(index) {
+    if (confirm('Tem certeza que deseja excluir este registro?')) {
+        currentExcelData.splice(index, 1);
+        loadEditForm(); // Recarrega a tabela
+    }
 }
 
 function saveEditedData() {
-    // A lógica existente permanece aqui
+    const rows = document.getElementById('edit-table-body').getElementsByTagName('tr');
+    const updatedData = [];
+
+    for (let row of rows) {
+        const originalRowIndex = row.getAttribute('data-index');
+        const originalRow = currentExcelData[originalRowIndex] || {};
+
+        // Converter a data para o formato correto
+        const dataValue = row.querySelector('[data-field="Data Manutenção"]').value;
+        const [ano, mes, dia] = dataValue.split('-');
+        const dataFormatada = `${dia}/${mes}/${ano}`;
+        
+        const rowData = {
+            ...originalRow, // Preserve other fields
+            'Data Manutenção': dataFormatada,
+            'Nome Equipamento': row.querySelector('[data-field="Nome Equipamento"]').value,
+            'Tipo de Manutenção': parseInt(row.querySelector('[data-field="Tipo de Manutenção"]').value),
+            'Criticidade': row.querySelector('[data-field="Criticidade"]').value,
+            'Nome do Analista': row.querySelector('[data-field="Nome do Analista"]').value,
+            'Estado': row.querySelector('[data-field="Estado"]').value,
+            'Valor Material': parseFloat(row.querySelector('[data-field="Valor Material"]').value),
+            'Valor Mão de Obra': parseFloat(row.querySelector('[data-field="Valor Mão de Obra"]').value)
+        };
+        updatedData.push(rowData);
+    }
+
+    currentExcelData = updatedData;
+    
+    // Salvar no Firebase
+    saveToFirebase(currentExcelData, 'edited_data');
+
+    // Atualiza os gráficos e análises
+    loadDashboardData();
+
+    alert('Dados atualizados com sucesso!');
+    showView('dashboard');
+}
+
+function loadSettingsForm() {
+    // Implementação básica para configurações
+    console.log('Carregando formulário de configurações');
+}
+
+function saveSettings() {
+    console.log('Salvando configurações');
+    alert('Funcionalidade de configurações em desenvolvimento');
 }
 
 function exportReport() {
-    // A lógica existente permanece aqui
-}
+    if (!dashboardData) {
+        alert('Nenhum dado disponível para exportar');
+        return;
+    }
+    
+    try {
+        const report = `
+RELATÓRIO DE MANUTENÇÃO
+========================
 
+KPIs Principais:
+- Manutenções Corretivas: ${dashboardData.kpis.corretivas}
+- Manutenções Preventivas: ${dashboardData.kpis.preventivas}
+- Preventivas Vencidas: ${dashboardData.kpis.preventivasVenc}
+- Manutenções Preditivas: ${dashboardData.kpis.preditivas}
+- Melhorias: ${dashboardData.kpis.melhorias}
+- Total de Equipamentos: ${dashboardData.kpis.equipamentos}
+- Total de O.S: ${dashboardData.kpis.osTotal}
+- Disponibilidade: ${Math.round(dashboardData.kpis.availability)}%
+- Custo Total: R$ ${dashboardData.kpis.custoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+
+Custos Mensais:
+${meses.map((mes, i) => `${mes}: R$ ${dashboardData.monthly_costs[i].toLocaleString('pt-BR', {minimumFractionDigits: 2})}`).join('\n')}
+
+Corretivas Mensais:
+${meses.map((mes, i) => `${mes}: ${dashboardData.monthly_correctives[i]}`).join('\n')}
+
+Gerado em: ${new Date().toLocaleString('pt-BR')}
+        `;
+        
+        const blob = new Blob([report], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 
+`relatorio_manutencao_${new Date().toISOString().split('T')[0]}.txt
+`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+    } catch (error) {
+        console.error('Erro ao exportar relatório:', error);
+        alert('Erro ao exportar relatório: ' + error.message);
+    }
+}
