@@ -278,6 +278,7 @@ async function initializeDashboard() {
     if (!currentExcelData) {
         showView('upload');
     } else {
+        showView('dashboard');
         await loadDashboardData();
     }
 }
@@ -354,9 +355,7 @@ async function processExcelFile() {
         await loadDashboardData();
         
         // Voltar para o dashboard
-        setTimeout(() => {
-            showView('dashboard');
-        }, 2000);
+        showView('dashboard');
         
     } catch (error) {
         console.error('Erro ao processar arquivo:', error);
