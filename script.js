@@ -292,7 +292,21 @@ function setupEventListeners() {
     document.getElementById('btn-edit-criticality')?.addEventListener('click', () => openChartEditModal('criticalityChart', 'Ordens por Criticidade'));
     document.getElementById('btn-edit-top-equipment')?.addEventListener('click', () => openChartEditModal('topEquipmentChart', 'Top 5 Equipamentos com Mais Ordens'));
     document.getElementById('btn-edit-analyst')?.addEventListener('click', () => openChartEditModal('analystChart', 'Ordens por Analista'));
+    
+    // Mobile menu button
+    const btnMobile = document.getElementById('btn-mobile-menu');
+    if (btnMobile) btnMobile.addEventListener('click', openMobileNav);
 
+
+function openMobileNav() {
+    const nav = document.getElementById('mobileNav');
+    if (nav) nav.classList.remove('hidden');
+}
+
+function closeMobileNav() {
+    const nav = document.getElementById('mobileNav');
+    if (nav) nav.classList.add('hidden');
+}
     // Preencher anos disponíveis
     populateYearFilter();
     
