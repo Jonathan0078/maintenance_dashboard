@@ -18,7 +18,6 @@ Chart.defaults.plugins.title.color = '#000000';
 let selectedYear = '';
 let selectedMonth = '';
 
-// Função para imprimir gráficos
 async function saveChartsAsPDF() {
     showLoading(true);
     const { jsPDF } = window.jspdf;
@@ -211,7 +210,7 @@ function showView(viewName) {
     // Mostrar/esconder filtros do dashboard
     const dashboardFilters = document.getElementById('dashboard-filters');
     if (dashboardFilters) {
-        if (viewName === 'dashboard') {
+        if (viewName === 'dashboard' || viewName === 'analytics') {
             dashboardFilters.classList.remove('hidden');
         } else {
             dashboardFilters.classList.add('hidden');
@@ -464,8 +463,12 @@ function handleFilterChange() {
     // Filtrar dados
     filteredData = filterData();
 
-    // Recarregar dashboard com dados filtrados
-    loadDashboardData();
+    // Recarregar a view ativa
+    if (!document.getElementById('dashboard-view').classList.contains('hidden')) {
+        loadDashboardData();
+    } else if (!document.getElementById('analytics-view').classList.contains('hidden')) {
+        loadEquipmentAnalysis();
+    }
 }
 
 function filterData() {
@@ -870,22 +873,91 @@ function createMTBFChart(mtbfData) {
                 borderColor: accentColor,
                 backgroundColor: accentColor + '20',
                 fill: true,
-                tension: 0.4
+                tension: 0.4,
+                borderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                datalabels: {
+                    align: 'end',
+                    anchor: 'end',
+                    formatter: function(value) {
+                        return value.toFixed(0);
+                    },
+                    color: 'white',
+                    font: { size: 10 },
+                    padding: 6
+                }
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: 'white' } } },
+            plugins: {
+                legend: { 
+                    labels: { 
+                        color: 'white',
+                        font: { size: 11 },
+                        padding: 10,
+                        boxWidth: 15
+                    },
+                    position: 'bottom'
+                },
+                title: {
+                    display: true,
+                    text: 'Tempo Médio Entre Falhas (MTBF)',
+                    color: 'white',
+                    font: { size: 13 },
+                    padding: { bottom: 10 }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    padding: 10,
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(0)}`;
+                        }
+                    }
+                }
+            },
             scales: {
                 y: { 
                     beginAtZero: true,
-                    ticks: { color: 'white' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
+                    title: {
+                        display: true,
+                        text: 'Horas',
+                        color: 'white',
+                        font: { size: 11 }
+                    },
+                    ticks: { 
+                        color: 'white',
+                        font: { size: 10 },
+                        maxTicksLimit: 6,
+                        callback: function(value) {
+                            return value.toFixed(0);
+                        }
+                    },
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
                 },
                 x: { 
-                    ticks: { color: 'white' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
+                    title: {
+                        display: true,
+                        text: 'Mês',
+                        color: 'white',
+                        font: { size: 11 }
+                    },
+                    ticks: { 
+                        color: 'white',
+                        font: { size: 10 }
+                    },
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
                 }
             }
         }
@@ -910,7 +982,25 @@ function createMonthlyCostsChart(costsData) {
                 data: costsData,
                 backgroundColor: '#10b981',
                 borderColor: '#10b981',
-                borderWidth: 1
+                borderWidth: 1,
+                order: 2,
+                datalabels: {
+                    align: 'end',
+                    anchor: 'end',
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0;
+                    },
+                    formatter: function(value) {
+                        if (value >= 1000000) {
+                            return (value / 1000000).toFixed(1) + 'M';
+                        }
+                        return (value / 1000).toFixed(0) + 'K';
+                    },
+                    color: 'white',
+                    font: {
+                        size: 10
+                    }
+                }
             }, {
                 label: 'Média Mensal',
                 data: Array(12).fill(mediaMensal),
@@ -918,32 +1008,52 @@ function createMonthlyCostsChart(costsData) {
                 borderColor: '#f59e0b',
                 borderWidth: 2,
                 borderDash: [5, 5],
-                fill: false
+                fill: false,
+                order: 1,
+                datalabels: {
+                    display: false
+                }
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            barPercentage: 0.6,
+            categoryPercentage: 0.7,
             plugins: {
                 title: {
                     display: true,
                     text: [
                         'Custos Mensais de Manutenção',
-                        `Total: R$ ${custoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`,
-                        `Média Mensal: R$ ${mediaMensal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`
+                        `Total: ${(custoTotal >= 1000000 ? (custoTotal/1000000).toFixed(1) + 'M' : (custoTotal/1000).toFixed(0) + 'K')}`,
+                        `Média: ${(mediaMensal >= 1000000 ? (mediaMensal/1000000).toFixed(1) + 'M' : (mediaMensal/1000).toFixed(0) + 'K')}`
                     ],
                     color: 'white',
-                    font: { size: 14 }
+                    font: { size: 13 },
+                    padding: { bottom: 10 }
                 },
                 legend: { 
-                    labels: { color: 'white', padding: 20 },
+                    labels: { 
+                        color: 'white', 
+                        padding: 10,
+                        font: { size: 11 },
+                        boxWidth: 15
+                    },
                     position: 'bottom'
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: 12,
                     callbacks: {
                         label: function(context) {
                             const value = context.parsed.y;
-                            return `${context.dataset.label}: R$ ${value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                            let formattedValue;
+                            if (value >= 1000000) {
+                                formattedValue = 'R$ ' + (value/1000000).toFixed(1) + 'M';
+                            } else {
+                                formattedValue = 'R$ ' + (value/1000).toFixed(0) + 'K';
+                            }
+                            return `${context.dataset.label}: ${formattedValue}`;
                         },
                         afterBody: function(tooltipItems) {
                             const dataIndex = tooltipItems[0].dataIndex;
@@ -958,16 +1068,31 @@ function createMonthlyCostsChart(costsData) {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Valor (R$)',
-                        color: 'white'
+                        text: 'Valor',
+                        color: 'white',
+                        padding: { bottom: 10 }
                     },
+                    position: 'left',
                     ticks: { 
                         color: 'white',
                         callback: function(value) {
-                            return 'R$ ' + value.toLocaleString('pt-BR');
+                            if (value >= 1000000) {
+                                return (value / 1000000).toFixed(1) + 'M';
+                            } else if (value >= 1000) {
+                                return (value / 1000).toFixed(0) + 'K';
+                            }
+                            return value;
+                        },
+                        maxTicksLimit: 5,
+                        padding: 10,
+                        font: {
+                            size: 10
                         }
                     },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
                 },
                 x: { 
                     title: {
@@ -1002,14 +1127,35 @@ function createMonthlyCorrectivesChart(correctivesData) {
                 borderColor: '#ef4444',
                 backgroundColor: '#ef444420',
                 fill: true,
-                tension: 0.4
+                tension: 0.4,
+                order: 2,
+                borderWidth: 2,
+                datalabels: {
+                    align: 'end',
+                    anchor: 'end',
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0;
+                    },
+                    formatter: function(value) {
+                        return value.toFixed(0);
+                    },
+                    color: 'white',
+                    font: {
+                        size: 10
+                    },
+                    padding: 6
+                }
             }, {
                 label: 'Média Mensal',
                 data: Array(12).fill(mediaCorretivas),
                 borderColor: '#f59e0b',
                 borderWidth: 2,
                 borderDash: [5, 5],
-                fill: false
+                fill: false,
+                order: 1,
+                datalabels: {
+                    display: false
+                }
             }]
         },
         options: {
@@ -1018,23 +1164,34 @@ function createMonthlyCorrectivesChart(correctivesData) {
             plugins: {
                 title: {
                     display: true,
-                    text: ['Manutenções Corretivas por Mês', `Total: ${totalCorretivas} | Média: ${mediaCorretivas.toFixed(1)}`],
+                    text: [
+                        'Manutenções Corretivas por Mês',
+                        `Total: ${totalCorretivas} | Média: ${mediaCorretivas.toFixed(0)}`
+                    ],
                     color: 'white',
-                    font: { size: 14 }
+                    font: { size: 13 },
+                    padding: { bottom: 10 }
                 },
                 legend: { 
-                    labels: { color: 'white', padding: 20 },
+                    labels: { 
+                        color: 'white',
+                        padding: 10,
+                        font: { size: 11 },
+                        boxWidth: 15
+                    },
                     position: 'bottom'
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: 12,
                     callbacks: {
                         label: function(context) {
-                            return `${context.dataset.label}: ${context.parsed.y}`;
+                            return `${context.dataset.label}: ${context.parsed.y.toFixed(0)}`;
                         },
                         afterBody: function(tooltipItems) {
                             const dataIndex = tooltipItems[0].dataIndex;
                             const percentual = (correctivesData[dataIndex] / totalCorretivas * 100).toFixed(1);
-                            return [`\nRepresenta ${percentual}% do total`];
+                            return [`\nRepresenta ${percentual}% do total de O.S`];
                         }
                     }
                 }
@@ -1044,25 +1201,43 @@ function createMonthlyCorrectivesChart(correctivesData) {
                     beginAtZero: true,
                     title: {
                         display: true,
-                        text: 'Quantidade de O.S',
-                        color: 'white'
+                        text: 'Quantidade',
+                        color: 'white',
+                        padding: { bottom: 10 }
                     },
                     ticks: { 
                         color: 'white',
                         callback: function(value) {
                             return value.toFixed(0);
+                        },
+                        maxTicksLimit: 5,
+                        padding: 10,
+                        font: {
+                            size: 10
                         }
                     },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
                 },
                 x: { 
                     title: {
                         display: true,
                         text: 'Mês',
-                        color: 'white'
+                        color: 'white',
+                        padding: { top: 10 }
                     },
-                    ticks: { color: 'white' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
+                    ticks: { 
+                        color: 'white',
+                        font: {
+                            size: 10
+                        }
+                    },
+                    grid: { 
+                        color: 'rgba(255,255,255,0.1)',
+                        drawBorder: false
+                    }
                 }
             }
         }
@@ -1106,9 +1281,26 @@ function createMonthlyStatusChart(statusData) {
             maintainAspectRatio: false,
             plugins: {
                 legend: { 
-                    labels: { color: 'white' },
-                    position: 'top'
+                    labels: { 
+                        color: 'white',
+                        font: { size: 11 },
+                        boxWidth: 15,
+                        padding: 8
+                    },
+                    position: 'top',
+                    maxWidth: 800
+                },
+                title: {
+                    display: true,
+                    text: 'Status das Ordens de Manutenção',
+                    color: 'white',
+                    font: { size: 14 },
+                    padding: { bottom: 10 }
                 }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
             },
             scales: {
                 y: { 
@@ -1135,58 +1327,152 @@ function createMaintenanceTypeChart(data) {
     const values = Object.values(data);
     const total = values.reduce((a, b) => a + b, 0);
 
+    // Calcular porcentagens e ordenar os dados
+    const dataWithPercentages = labels.map((label, index) => ({
+        label,
+        value: values[index],
+        percentage: (values[index] / total * 100)
+    })).sort((a, b) => b.percentage - a.percentage);
+
+    // Criar dados para o gráfico de velocímetro
+    const gaugeData = {
+        labels: dataWithPercentages.map(d => d.label),
+        datasets: [{
+            data: dataWithPercentages.map(d => d.percentage),
+            backgroundColor: [
+                "#00f6ff", "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
+                "#8b5cf6", "#ec4899", "#f97316", "#6b7280", "#a855f7"
+            ],
+            borderColor: '#1e293b',
+            borderWidth: 2,
+            circumference: 180, // Meio círculo
+            rotation: 270, // Começa do lado esquerdo
+            datalabels: {
+                display: true,
+                color: 'white',
+                font: { size: 11, weight: 'bold' },
+                formatter: function(value, context) {
+                    return context.chart.data.labels[context.dataIndex] + '\n' + value.toFixed(1) + '%';
+                },
+                align: 'end',
+                anchor: 'end',
+                offset: 10
+            }
+        }]
+    };
+
     charts.maintenanceType = new Chart(ctx.getContext('2d'), {
         type: "doughnut",
-        data: {
-            labels: labels,
-            datasets: [{
-                data: values,
-                backgroundColor: [
-                    "#00f6ff", "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
-                    "#8b5cf6", "#ec4899", "#f97316", "#6b7280", "#a855f7"
-                ],
-                hoverOffset: 4,
-                borderColor: '#262f4e', // Add border to separate slices
-                borderWidth: 2
-            }]
-        },
+        data: gaugeData,
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            cutout: '70%',
             plugins: { 
                 legend: { 
-                    labels: { color: "white" },
-                    position: 'right' 
+                    display: true,
+                    position: 'right',
+                    labels: { 
+                        color: "white",
+                        font: { size: 11 },
+                        boxWidth: 12,
+                        padding: 8,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        filter: function(legendItem, data) {
+                            return data.datasets[0].data[legendItem.index] > 1; // Só mostra itens com mais de 1%
+                        },
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            return data.labels.map((label, i) => ({
+                                text: `${label} (${data.datasets[0].data[i].toFixed(1)}%)`,
+                                fillStyle: data.datasets[0].backgroundColor[i],
+                                hidden: false,
+                                index: i,
+                                fontColor: 'white'
+                            }));
+                        }
+                    },
+                    align: 'center',
+                    maxWidth: 200,
+                    maxHeight: 200
                 },
                 title: {
                     display: true,
-                    text: `Ordens por Tipo de Manutenção (Total: ${total})`,
+                    text: ['Distribuição de Ordens por Tipo', `Total: ${total.toLocaleString()} ordens`],
                     color: 'white',
-                    font: { size: 16 }
+                    font: { size: 13 },
+                    padding: { bottom: 15 }
                 },
                 tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    padding: 10,
                     callbacks: {
                         label: function(context) {
-                            const label = context.label || '';
-                            const value = context.raw || 0;
-                            const percentage = ((value / total) * 100).toFixed(1);
-                            return `${label}: ${value} (${percentage}%)`;
+                            const dataWithPercentages = context.chart.data.labels.map((label, i) => ({
+                                label,
+                                value: data[label],
+                                percentage: context.chart.data.datasets[0].data[i]
+                            }));
+                            const item = dataWithPercentages[context.dataIndex];
+                            return `${item.label}: ${item.value.toLocaleString()} (${item.percentage.toFixed(1)}%)`;
                         }
                     }
                 },
                 datalabels: {
-                    formatter: (value, ctx) => {
-                        const percentage = ((value / total) * 100).toFixed(1);
-                        return `${percentage}%`;
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 3; // Só mostra rótulos para valores > 3%
                     },
-                    color: '#fff',
-                    font: {
-                        weight: 'bold'
-                    }
+                    color: 'white',
+                    font: { size: 11, weight: 'bold' },
+                    formatter: function(value, context) {
+                        return value.toFixed(1) + '%';
+                    },
+                    align: 'end',
+                    anchor: 'end',
+                    offset: 10
+                }
+            },
+            layout: {
+                padding: {
+                    top: 30,
+                    bottom: 30,
+                    left: 20,
+                    right: 20
+                }
+            },
+            elements: {
+                arc: {
+                    borderWidth: 0
                 }
             }
         }
     });
+
+    // Adicionar texto central com o maior valor
+    const maxItem = dataWithPercentages[0];
+    if (maxItem && ctx) {
+        const ctxCenter = ctx.getContext('2d');
+        ctxCenter.save();
+        ctxCenter.fillStyle = 'white';
+        
+        // Ajustar o tamanho do texto baseado no comprimento do label
+        const labelFontSize = maxItem.label.length > 12 ? 16 : 20;
+        
+        // Posicionar os textos mais separados
+        ctxCenter.font = `bold ${labelFontSize}px Arial`;
+        ctxCenter.textAlign = 'center';
+        ctxCenter.textBaseline = 'middle';
+        ctxCenter.fillText(`${maxItem.label}`, ctx.width / 2, ctx.height / 2 - 25);
+        
+        ctxCenter.font = 'bold 28px Arial';
+        ctxCenter.fillText(`${maxItem.percentage.toFixed(1)}%`, ctx.width / 2, ctx.height / 2 + 25);
+        
+        ctxCenter.restore();
+    }
 }
 
 function createCriticalityChart(data) {
@@ -1307,7 +1593,10 @@ function loadEquipmentAnalysis() {
         // Análise por equipamento
         const equipmentStats = {};
         
-        currentExcelData.forEach(row => {
+        // Usar dados filtrados se houver filtros ativos, caso contrário usar todos os dados
+        const dataToUse = (selectedYear || selectedMonth !== '') ? filterData() : currentExcelData;
+        
+        dataToUse.forEach(row => {
             const equipmentName = row['Nome Equipamento'];
             if (!equipmentName) return;
             
