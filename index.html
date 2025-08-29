@@ -32,12 +32,8 @@
 <body class="bg-kpi-main font-sans">
     <div class="flex min-h-screen">
         <!-- Barra Lateral -->
-        <aside class="bg-kpi-dark w-20 flex flex-col items-center py-6 space-y-8">
-            <div class="w-10 h-10 bg-kpi-accent rounded-md flex items-center justify-center">
-                <svg class="w-6 h-6 text-kpi-dark" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
-                </svg>
-            </div>
+        <aside class="bg-kpi-dark w-20 flex flex-col items-center py-6 space-y-8 fixed h-full z-20">
+            <img src="https://raw.githubusercontent.com/rarruda/kpi-dashboard/main/logo-mor-2x.png" alt="Logo" class="w-16 pointer-events-none select-none">
             <button id="btn-dashboard" class="p-2 text-kpi-accent bg-gray-700/50 rounded-lg" title="Dashboard">
                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V4zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
@@ -77,27 +73,27 @@
         </aside>
 
         <!-- Conteúdo Principal -->
-        <main class="flex-1 p-4 md:p-8 overflow-y-auto">
+        <main class="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto ml-20">
             <!-- Header -->
             <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
                 <div>
                     <p class="text-gray-400 text-lg">Bem-vindo ao</p>
-                    <p class="text-white text-2xl font-bold">Dashboard de Manutenção</p>
+                    <h1 class="text-white text-2xl font-bold">Dashboard de Manutenção</h1>
                 </div>
-                <div class="flex items-center space-x-4 mt-2 md:mt-0">
+                <div class="flex items-center flex-wrap justify-center md:justify-end gap-2 mt-4 md:mt-0">
                     <button id="btn-save-pdf" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors">
                         Salvar Relatório (PDF)
                     </button>
                     <button id="btn-refresh" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg font-semibold hover:bg-white transition-colors">
                         Atualizar Dados
                     </button>
-                    <div id="date-time-display" class="text-gray-300 text-lg font-medium"></div>
+                    <div id="date-time-display" class="text-gray-300 text-lg font-medium text-center md:text-right w-full md:w-auto mt-2 md:mt-0"></div>
                 </div>
             </header>
 
             <!-- Filtros do Dashboard -->
             <div id="dashboard-filters" class="hidden bg-kpi-dark rounded-lg p-4 mb-6">
-                <div class="flex items-center space-x-4">
+                <div class="flex flex-wrap items-center gap-4">
                     <label class="text-white">Filtrar por:</label>
                     <select id="filter-year" class="bg-kpi-dark text-white px-3 py-2 rounded-lg border border-gray-600">
                         <option value="">Todos os Anos</option>
@@ -166,7 +162,7 @@
                         <label class="block text-white text-sm font-medium mb-2">
                             Selecione um arquivo CSV (.csv)
                         </label>
-                        <input type="file" id="excel-file-input" accept=".csv" 
+                        <input type="file" id="excel-file-input" accept=".csv,.xlsx,.xls" 
                                class="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-kpi-main file:text-kpi-accent hover:file:bg-kpi-accent hover:file:text-kpi-main cursor-pointer">
                     </div>
                     <button id="btn-process-file" class="bg-kpi-accent text-kpi-dark font-bold px-6 py-3 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">
@@ -182,8 +178,8 @@
             <div id="dashboard-view" class="space-y-8">
                 <!-- KPIs Principais -->
                 <div class="mb-8">
-                    <h2 class="text-xl text-white font-semibold mb-4">VISÃO GERAL DO PAINEL</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <h2 class="text-xl text-white font-semibold mb-4 uppercase">Visão Geral do Painel</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                         <div class="bg-white rounded-lg p-4 text-gray-800">
                             <h3 class="font-medium text-gray-500">Corretivas</h3>
                             <p id="kpi-corretivas" class="text-4xl font-bold">0</p>
@@ -216,7 +212,7 @@
                             <h3 class="font-medium">Disponibilidade</h3>
                             <p id="kpi-availability" class="text-4xl font-bold">0%</p>
                         </div>
-                        <div class="bg-success rounded-lg p-4 text-white col-span-2 md:col-span-2 lg:col-span-2">
+                        <div class="bg-success rounded-lg p-4 text-white col-span-2 md:col-span-1 lg:col-span-2">
                             <h3 class="font-medium">Custo Total</h3>
                             <p id="kpi-custo-total" class="text-4xl font-bold">R$ 0,00</p>
                         </div>
@@ -228,54 +224,81 @@
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-2">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-white font-medium">MTTR (Tempo Médio de Reparo)</h3>
+                            <button id="btn-edit-mttr" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar MTTR">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
                         </div>
                         <div class="h-64"><canvas id="mttrChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-white font-medium">MTBF (Tempo Médio Entre Falhas)</h3>
+                            <button id="btn-edit-mtbf" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar MTBF">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
                         </div>
                         <div class="h-64"><canvas id="mtbfChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-2">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-white font-medium">Custos Mensais de Manutenção</h3>
+                             <button id="btn-edit-monthlyCosts" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Custos">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
                         </div>
                         <div class="h-64"><canvas id="monthlyCostsChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-white font-medium">O.S Corretivas Mensais</h3>
+                             <button id="btn-edit-monthlyCorrectives" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Corretivas">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
                         </div>
                         <div class="h-64"><canvas id="monthlyCorrectivesChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-white font-medium">Ordens por Status Mensal</h3>
+                            <button id="btn-edit-monthlyStatus" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Status">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
                         </div>
                         <div class="h-64"><canvas id="monthlyStatusChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-white font-medium">Ordens por Tipo de Manutenção</h3>
+                            <button id="btn-edit-maintenanceType" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Tipos">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
                         </div>
                         <div class="h-64"><canvas id="maintenanceTypeChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-white font-medium">Ordens por Criticidade</h3>
+                             <button id="btn-edit-criticality" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Criticidade">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
                         </div>
                         <div class="h-64"><canvas id="criticalityChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-white font-medium">Top 5 Equipamentos com Mais Ordens</h3>
+                             <button id="btn-edit-topEquipment" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Equipamentos">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
                         </div>
                         <div class="h-64"><canvas id="topEquipmentChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-white font-medium">Ordens por Analista</h3>
+                             <button id="btn-edit-analyst" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Analistas">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
                         </div>
                         <div class="h-64"><canvas id="analystChart"></canvas></div>
                     </div>
@@ -302,16 +325,6 @@
                 </div>
             </div>
 
-            <!-- Edição de Dados -->
-            <div id="edit-view" class="hidden space-y-8">
-                <h2 class="text-xl text-white font-semibold mb-4">EDITAR DADOS</h2>
-                <div class="bg-kpi-dark rounded-lg p-6">
-                    <div id="edit-content">
-                        <p class="text-gray-400">Funcionalidade de edição em desenvolvimento.</p>
-                    </div>
-                </div>
-            </div>
-
             <!-- Configurações -->
             <div id="settings-view" class="hidden space-y-8">
                 <h2 class="text-xl text-white font-semibold mb-4">CONFIGURAÇÕES</h2>
@@ -324,6 +337,169 @@
         </main>
     </div>
 
-    <script src="dashboard.js"></script>
+    <!-- MTTR Edit Modal -->
+    <div id="mttrModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-kpi-dark p-8 rounded-lg shadow-lg w-11/12 max-w-sm">
+            <h2 class="text-white text-xl font-bold mb-4">Editar MTTR Trimestral</h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="mttrQ1" class="block text-gray-300 text-sm font-medium mb-1">Q1 (horas)</label>
+                    <input type="number" id="mttrQ1" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mttrQ2" class="block text-gray-300 text-sm font-medium mb-1">Q2 (horas)</label>
+                    <input type="number" id="mttrQ2" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mttrQ3" class="block text-gray-300 text-sm font-medium mb-1">Q3 (horas)</label>
+                    <input type="number" id="mttrQ3" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button onclick="closeMTTRModal()" class="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
+                    Cancelar
+                </button>
+                <button onclick="updateMTTR()" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg font-semibold hover:bg-white transition-colors">
+                    Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MTBF Edit Modal -->
+    <div id="mtbfModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-kpi-dark p-8 rounded-lg shadow-lg w-11/12 max-w-2xl">
+            <h2 class="text-white text-xl font-bold mb-4">Editar MTBF Mensal</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Inputs from Jan to Dec -->
+                <div>
+                    <label for="mtbfJan" class="block text-gray-300 text-sm font-medium mb-1">Janeiro</label>
+                    <input type="number" id="mtbfJan" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfFev" class="block text-gray-300 text-sm font-medium mb-1">Fevereiro</label>
+                    <input type="number" id="mtbfFev" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfMar" class="block text-gray-300 text-sm font-medium mb-1">Março</label>
+                    <input type="number" id="mtbfMar" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfAbr" class="block text-gray-300 text-sm font-medium mb-1">Abril</label>
+                    <input type="number" id="mtbfAbr" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfMai" class="block text-gray-300 text-sm font-medium mb-1">Maio</label>
+                    <input type="number" id="mtbfMai" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfJun" class="block text-gray-300 text-sm font-medium mb-1">Junho</label>
+                    <input type="number" id="mtbfJun" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfJul" class="block text-gray-300 text-sm font-medium mb-1">Julho</label>
+                    <input type="number" id="mtbfJul" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfAgo" class="block text-gray-300 text-sm font-medium mb-1">Agosto</label>
+                    <input type="number" id="mtbfAgo" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfSet" class="block text-gray-300 text-sm font-medium mb-1">Setembro</label>
+                    <input type="number" id="mtbfSet" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfOut" class="block text-gray-300 text-sm font-medium mb-1">Outubro</label>
+                    <input type="number" id="mtbfOut" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfNov" class="block text-gray-300 text-sm font-medium mb-1">Novembro</label>
+                    <input type="number" id="mtbfNov" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="mtbfDez" class="block text-gray-300 text-sm font-medium mb-1">Dezembro</label>
+                    <input type="number" id="mtbfDez" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button onclick="closeMTBFModal()" class="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
+                    Cancelar
+                </button>
+                <button onclick="updateMTBF()" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg font-semibold hover:bg-white transition-colors">
+                    Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly Costs Edit Modal -->
+    <div id="monthlyCostsModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-kpi-dark p-8 rounded-lg shadow-lg w-11/12 max-w-2xl">
+            <h2 class="text-white text-xl font-bold mb-4">Editar Custos Mensais</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Inputs from Jan to Dec -->
+                <div>
+                    <label for="costJan" class="block text-gray-300 text-sm font-medium mb-1">Janeiro (R$)</label>
+                    <input type="number" id="costJan" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costFev" class="block text-gray-300 text-sm font-medium mb-1">Fevereiro (R$)</label>
+                    <input type="number" id="costFev" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costMar" class="block text-gray-300 text-sm font-medium mb-1">Março (R$)</label>
+                    <input type="number" id="costMar" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costAbr" class="block text-gray-300 text-sm font-medium mb-1">Abril (R$)</label>
+                    <input type="number" id="costAbr" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costMai" class="block text-gray-300 text-sm font-medium mb-1">Maio (R$)</label>
+                    <input type="number" id="costMai" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costJun" class="block text-gray-300 text-sm font-medium mb-1">Junho (R$)</label>
+                    <input type="number" id="costJun" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costJul" class="block text-gray-300 text-sm font-medium mb-1">Julho (R$)</label>
+                    <input type="number" id="costJul" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costAgo" class="block text-gray-300 text-sm font-medium mb-1">Agosto (R$)</label>
+                    <input type="number" id="costAgo" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costSet" class="block text-gray-300 text-sm font-medium mb-1">Setembro (R$)</label>
+                    <input type="number" id="costSet" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costOut" class="block text-gray-300 text-sm font-medium mb-1">Outubro (R$)</label>
+                    <input type="number" id="costOut" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costNov" class="block text-gray-300 text-sm font-medium mb-1">Novembro (R$)</label>
+                    <input type="number" id="costNov" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+                <div>
+                    <label for="costDez" class="block text-gray-300 text-sm font-medium mb-1">Dezembro (R$)</label>
+                    <input type="number" id="costDez" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4 mt-6">
+                <button onclick="closeMonthlyCostsModal()" class="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
+                    Cancelar
+                </button>
+                <button onclick="updateMonthlyCosts()" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg font-semibold hover:bg-white transition-colors">
+                    Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="script.js"></script>
 </body>
 </html>
+
