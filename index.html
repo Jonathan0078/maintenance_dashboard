@@ -106,6 +106,7 @@
             <div id="mobileNav" class="fixed inset-0 z-50 hidden">
                 <div class="absolute inset-0 bg-black/50" onclick="closeMobileNav()"></div>
                 <nav class="absolute left-0 top-0 bottom-0 w-64 bg-kpi-dark p-4 overflow-y-auto">
+                    <nav id="mobileNavPanel" class="absolute left-0 top-0 bottom-0 w-64 bg-kpi-dark p-4 overflow-y-auto transform -translate-x-full transition-transform duration-300">
                     <div class="flex flex-col space-y-4">
                         <button onclick="showView('dashboard'); closeMobileNav();" class="flex items-center p-3 text-gray-300 hover:text-kpi-accent">Dashboard</button>
                         <button onclick="showView('upload'); closeMobileNav();" class="flex items-center p-3 text-gray-300 hover:text-kpi-accent">Upload</button>

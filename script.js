@@ -301,11 +301,19 @@ function setupEventListeners() {
 function openMobileNav() {
     const nav = document.getElementById('mobileNav');
     if (nav) nav.classList.remove('hidden');
+    const panel = document.getElementById('mobileNavPanel');
+    if (panel) {
+        // esperar próximo frame para aplicar animação
+        requestAnimationFrame(() => panel.classList.remove('-translate-x-full'));
+    }
 }
 
 function closeMobileNav() {
     const nav = document.getElementById('mobileNav');
-    if (nav) nav.classList.add('hidden');
+    const panel = document.getElementById('mobileNavPanel');
+    if (panel) panel.classList.add('-translate-x-full');
+    // esconder backdrop depois da transição
+    setTimeout(() => { if (nav) nav.classList.add('hidden'); }, 300);
 }
     // Preencher anos disponíveis
     populateYearFilter();
