@@ -20,7 +20,6 @@ const TIPO_MAPPING = {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
-    alert("JavaScript carregado!");
     initializeDashboard();
     setupEventListeners();
     updateDateTime();
@@ -564,9 +563,7 @@ function createMTTRChart(mttrData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: 'white' } }
-            },
+            plugins: { legend: { labels: { color: 'white' } } },
             scales: {
                 y: { 
                     beginAtZero: true,
@@ -604,9 +601,7 @@ function createMTBFChart(mtbfData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: 'white' } }
-            },
+            plugins: { legend: { labels: { color: 'white' } } },
             scales: {
                 y: { 
                     beginAtZero: true,
@@ -643,9 +638,7 @@ function createMonthlyCostsChart(costsData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: 'white' } }
-            },
+            plugins: { legend: { labels: { color: 'white' } } },
             scales: {
                 y: { 
                     beginAtZero: true,
@@ -688,9 +681,7 @@ function createMonthlyCorrectivesChart(correctivesData) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: 'white' } }
-            },
+            plugins: { legend: { labels: { color: 'white' } } },
             scales: {
                 y: { 
                     beginAtZero: true,
@@ -787,9 +778,7 @@ function createMaintenanceTypeChart(data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: "white" } }
-            }
+            plugins: { legend: { labels: { color: "white" } } }
         }
     });
 }
@@ -818,9 +807,7 @@ function createCriticalityChart(data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: "white" } }
-            },
+            plugins: { legend: { labels: { color: "white" } } },
             scales: {
                 y: {
                     beginAtZero: true,
@@ -861,9 +848,7 @@ function createTopEquipmentChart(data) {
             indexAxis: "y", // Makes it a horizontal bar chart
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: "white" } }
-            },
+            plugins: { legend: { labels: { color: "white" } } },
             scales: {
                 y: {
                     beginAtZero: true,
@@ -904,9 +889,7 @@ function createAnalystChart(data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: "white" } }
-            }
+            plugins: { legend: { labels: { color: "white" } } }
         }
     });
 }
@@ -1184,7 +1167,9 @@ Gerado em: ${new Date().toLocaleString('pt-BR')}
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `relatorio_manutencao_${new Date().toISOString().split('T')[0]}.txt`;
+        a.download = 
+`relatorio_manutencao_${new Date().toISOString().split('T')[0]}.txt
+`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1195,4 +1180,3 @@ Gerado em: ${new Date().toLocaleString('pt-BR')}
         alert('Erro ao exportar relatório: ' + error.message);
     }
 }
-
