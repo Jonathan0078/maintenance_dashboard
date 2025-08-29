@@ -18,7 +18,7 @@ const TIPO_MAPPING = {
     8: 'Outros'
 };
 
-// Inicialização
+// Inicialiação
 document.addEventListener('DOMContentLoaded', function() {
     initializeDashboard();
     setupEventListeners();
