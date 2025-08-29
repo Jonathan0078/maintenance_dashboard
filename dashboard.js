@@ -1295,6 +1295,17 @@ function createMonthlyStatusChart(statusData) {
                     color: 'white',
                     font: { size: 14 },
                     padding: { bottom: 10 }
+                },
+                datalabels: {
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0;
+                    },
+                    color: 'white',
+                    font: {
+                        size: 10
+                    },
+                    align: 'end',
+                    anchor: 'end'
                 }
             },
             interaction: {
@@ -1345,18 +1356,7 @@ function createMaintenanceTypeChart(data) {
             borderColor: '#1e293b',
             borderWidth: 2,
             circumference: 180, // Meio círculo
-            rotation: 270, // Começa do lado esquerdo
-            datalabels: {
-                display: true,
-                color: 'white',
-                font: { size: 11, weight: 'bold' },
-                formatter: function(value, context) {
-                    return context.chart.data.labels[context.dataIndex] + '\n' + value.toFixed(1) + '%';
-                },
-                align: 'end',
-                anchor: 'end',
-                offset: 10
-            }
+            rotation: 270 // Começa do lado esquerdo
         }]
     };
 
@@ -1423,10 +1423,10 @@ function createMaintenanceTypeChart(data) {
                 },
                 datalabels: {
                     display: function(context) {
-                        return context.dataset.data[context.dataIndex] > 3; // Só mostra rótulos para valores > 3%
+                        return context.dataset.data[context.dataIndex] > 4; // Só mostra rótulos para valores > 4%
                     },
                     color: 'white',
-                    font: { size: 11, weight: 'bold' },
+                    font: { size: 10, weight: 'bold' },
                     formatter: function(value, context) {
                         return value.toFixed(1) + '%';
                     },
@@ -1784,7 +1784,7 @@ function loadPredictiveAnalysis() {
 
 function loadEditForm() {
     if (!currentExcelData || !currentExcelData.length) {
-        alert('Nenhum dado disponível para edição. Por favor, faça o upload de um arquivo primeiro.');
+        showMessage('warning', 'Nenhum dado disponível para edição. Por favor, faça o upload de um arquivo primeiro.');
         showView('dashboard');
         return;
     }
@@ -1794,12 +1794,15 @@ function loadEditForm() {
     // Atualizar os cabeçalhos da tabela primeiro
     const headers = document.querySelector('#edit-table thead tr');
     headers.innerHTML = `
-        <th class="px-4 py-2">Data Manutenção</th>
-        <th class="px-4 py-2">Equipamento</th>
-        <th class="px-4 py-2">Tipo de Manutenção</th>
-        <th class="px-4 py-2">Descrição</th>
-        <th class="px-4 py-2">Horas Reportadas</th>
-        <th class="px-4 py-2">Ações</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Data Manutenção</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Equipamento</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Tipo de Manutenção</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Críticidade</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Analista</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Estado</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Custo Material</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Custo M.O.</th>
+        <th class="px-6 py-4 text-kpi-accent font-semibold">Ações</th>
     `;
 
     const tableBody = document.getElementById('edit-table-body');
@@ -1807,7 +1810,7 @@ function loadEditForm() {
 
     currentExcelData.forEach((row, index) => {
         const tr = document.createElement('tr');
-        tr.className = index % 2 === 0 ? 'bg-kpi-main/50' : 'bg-kpi-main/30';
+        tr.className = `${index % 2 === 0 ? 'bg-kpi-main/50' : 'bg-kpi-main/30'} hover:bg-kpi-accent/10 transition-colors duration-200`;
         tr.setAttribute('data-index', index);
 
         // Tratamento da data
@@ -1828,15 +1831,15 @@ function loadEditForm() {
         
         tr.innerHTML = `
             <td class="px-4 py-2">
-                <input type="date" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                <input type="date" class="bg-transparent border border-gray-600 rounded-lg px-3 py-2 w-full text-white focus:border-kpi-accent focus:ring-1 focus:ring-kpi-accent transition-all duration-200 hover:border-gray-400"
                        value="${dataValue}" data-field="Data Manutenção">
             </td>
             <td class="px-4 py-2">
                 <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
-                       value="${row['Equipamento'] || ''}" data-field="Equipamento">
+                       value="${row['Nome Equipamento'] || ''}" data-field="Nome Equipamento">
             </td>
             <td class="px-4 py-2">
-                <select class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white" data-field="Tipo de Manutenção">
+                <select class="bg-transparent border border-gray-600 rounded-lg px-3 py-2 w-full text-white focus:border-kpi-accent focus:ring-1 focus:ring-kpi-accent transition-all duration-200 hover:border-gray-400" data-field="Tipo de Manutenção">
                     ${Object.entries(TIPO_MAPPING).map(([value, label]) => 
                         `<option value="${value}" ${row['Tipo de Manutenção'] == value ? 'selected' : ''}>${label}</option>`
                     ).join('')}
@@ -1844,15 +1847,29 @@ function loadEditForm() {
             </td>
             <td class="px-4 py-2">
                 <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
-                       value="${row['Descrição'] || ''}" data-field="Descrição">
+                       value="${row['Criticidade'] || ''}" data-field="Criticidade">
+            </td>
+            <td class="px-4 py-2">
+                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                       value="${row['Nome do Analista'] || ''}" data-field="Nome do Analista">
+            </td>
+            <td class="px-4 py-2">
+                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                       value="${row['Estado'] || ''}" data-field="Estado">
             </td>
             <td class="px-4 py-2">
                 <input type="number" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
-                       value="${row['Duração'] || '0'}" data-field="Duração" step="0.1" min="0">
+                       value="${row['Valor Material'] || '0'}" data-field="Valor Material" step="0.01" min="0">
             </td>
             <td class="px-4 py-2">
-                <button class="text-danger hover:text-red-300" onclick="deleteRow(${index})">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <input type="number" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
+                       value="${row['Valor Mão de Obra'] || '0'}" data-field="Valor Mão de Obra" step="0.01" min="0">
+            </td>
+            <td class="px-4 py-2">
+                <button class="text-red-400 hover:text-red-300 transition-colors duration-200 p-2 rounded-lg hover:bg-red-500/10" 
+                        onclick="deleteRow(${index})"
+                        title="Excluir registro">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                               d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
@@ -1875,23 +1892,33 @@ function saveEditedData() {
     const updatedData = [];
 
     for (let row of rows) {
+        const originalRowIndex = row.getAttribute('data-index');
+        const originalRow = currentExcelData[originalRowIndex] || {};
+
         // Converter a data para o formato correto
         const dataValue = row.querySelector('[data-field="Data Manutenção"]').value;
         const [ano, mes, dia] = dataValue.split('-');
         const dataFormatada = `${dia}/${mes}/${ano}`;
         
         const rowData = {
+            ...originalRow, // Preserve other fields
             'Data Manutenção': dataFormatada,
-            'Equipamento': row.querySelector('[data-field="Equipamento"]').value,
+            'Nome Equipamento': row.querySelector('[data-field="Nome Equipamento"]').value,
             'Tipo de Manutenção': parseInt(row.querySelector('[data-field="Tipo de Manutenção"]').value),
-            'Descrição da Ordem': row.querySelector('[data-field="Descrição"]').value,
-            'Horas Reportadas': parseFloat(row.querySelector('[data-field="Horas"]').value)
+            'Criticidade': row.querySelector('[data-field="Criticidade"]').value,
+            'Nome do Analista': row.querySelector('[data-field="Nome do Analista"]').value,
+            'Estado': row.querySelector('[data-field="Estado"]').value,
+            'Valor Material': parseFloat(row.querySelector('[data-field="Valor Material"]').value),
+            'Valor Mão de Obra': parseFloat(row.querySelector('[data-field="Valor Mão de Obra"]').value)
         };
         updatedData.push(rowData);
     }
 
     currentExcelData = updatedData;
     
+    // Salvar no Firebase
+    saveToFirebase(currentExcelData, 'edited_data');
+
     // Atualiza os gráficos e análises
     loadDashboardData();
 
