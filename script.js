@@ -6,6 +6,98 @@ let filteredData = null;
 const accentColor = '#00f6ff';
 const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 const mesesCompletos = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+// Overrides feitos via modais (persistidos em localStorage / Firebase)
+let dashboardOverrides = {};
+
+function loadOverrides() {
+    // Tenta carregar do localStorage primeiro
+    try {
+        const raw = localStorage.getItem('dashboardOverrides');
+        if (raw) {
+            dashboardOverrides = JSON.parse(raw) || {};
+            console.log('Overrides carregados do localStorage');
+            return;
+        }
+    } catch (e) {
+        console.warn('Erro ao carregar overrides do localStorage:', e);
+    }
+
+    // Se houver Firebase configurado, tentar carregar overrides salvos
+    try {
+        if (window.firebase) {
+            const { db, doc, getDoc } = window.firebase;
+            (async () => {
+                try {
+                    const docRef = doc(db, 'maintenance', 'overrides');
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        if (data && data.overrides) {
+                            dashboardOverrides = data.overrides;
+                            localStorage.setItem('dashboardOverrides', JSON.stringify(dashboardOverrides));
+                            console.log('Overrides carregados do Firebase');
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Erro ao carregar overrides do Firebase:', err);
+                }
+            })();
+        }
+    } catch (e) {
+        console.warn('Firebase não disponível para carregar overrides:', e);
+    }
+}
+
+function saveOverrides() {
+    try {
+        localStorage.setItem('dashboardOverrides', JSON.stringify(dashboardOverrides || {}));
+    } catch (e) {
+        console.warn('Erro ao salvar overrides no localStorage:', e);
+    }
+
+    // Tentar salvar no Firebase (se configurado)
+    try {
+        if (window.firebase) {
+            const { db, doc, setDoc } = window.firebase;
+            setDoc(doc(db, 'maintenance', 'overrides'), {
+                overrides: dashboardOverrides,
+                savedAt: new Date().toISOString()
+            }).then(() => console.log('Overrides salvos no Firebase')).catch(err => console.warn('Erro ao salvar overrides no Firebase:', err));
+        }
+    } catch (e) {
+        console.warn('Firebase não disponível para salvar overrides:', e);
+    }
+}
+
+function applyOverridesToDashboardData(dashData) {
+    if (!dashData || !dashboardOverrides) return dashData;
+
+    // Substituir arrays/objetos conforme overrides
+    if (dashboardOverrides.monthly_costs && Array.isArray(dashboardOverrides.monthly_costs)) {
+        dashData.monthly_costs = dashboardOverrides.monthly_costs.slice();
+    }
+    if (dashboardOverrides.monthly_correctives && Array.isArray(dashboardOverrides.monthly_correctives)) {
+        dashData.monthly_correctives = dashboardOverrides.monthly_correctives.slice();
+    }
+    if (dashboardOverrides.monthly_status && typeof dashboardOverrides.monthly_status === 'object') {
+        dashData.monthly_status = dashboardOverrides.monthly_status;
+    }
+    if (dashboardOverrides.mttr && Array.isArray(dashboardOverrides.mttr)) {
+        dashData.mttr = dashboardOverrides.mttr.slice();
+    }
+    if (dashboardOverrides.mtbf && Array.isArray(dashboardOverrides.mtbf)) {
+        dashData.mtbf = dashboardOverrides.mtbf.slice();
+    }
+    if (dashboardOverrides.additionalData) {
+        dashData.additionalData = dashData.additionalData || {};
+        if (dashboardOverrides.additionalData.maintenanceTypeCounts) dashData.additionalData.maintenanceTypeCounts = dashboardOverrides.additionalData.maintenanceTypeCounts;
+        if (dashboardOverrides.additionalData.criticalityCounts) dashData.additionalData.criticalityCounts = dashboardOverrides.additionalData.criticalityCounts;
+        if (dashboardOverrides.additionalData.analystCounts) dashData.additionalData.analystCounts = dashboardOverrides.additionalData.analystCounts;
+        if (dashboardOverrides.additionalData.topEquipment) dashData.additionalData.topEquipment = dashboardOverrides.additionalData.topEquipment;
+    }
+
+    return dashData;
+}
 
 // Configurações globais do Chart.js para impressão
 Chart.register(ChartDataLabels);
@@ -159,6 +251,8 @@ const TIPO_MAPPING = {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
+    // Carregar overrides salvos antes de inicializar o dashboard
+    loadOverrides();
     initializeDashboard();
     setupEventListeners();
     updateDateTime();
@@ -214,6 +308,10 @@ function setupEventListeners() {
     
     const btnCancelSettings = document.getElementById('btn-cancel-settings');
     if (btnCancelSettings) btnCancelSettings.addEventListener('click', () => showView('dashboard'));
+
+    // Adicionar event listener para o botão de salvar do modal de edição de gráficos
+    const btnSaveChartEdit = document.getElementById('btn-save-chart-edit');
+    if (btnSaveChartEdit) btnSaveChartEdit.addEventListener('click', updateChartData);
 }
 
 function showView(viewName) {
@@ -325,10 +423,39 @@ function openChartEditModal(chartId, title) {
             });
             break;
         case 'monthlyCorrectivesChart':
-        case 'monthlyStatusChart':
             mesesCompletos.forEach((mes, index) => {
                 const valor = charts[chartId]?.data?.datasets[0]?.data[index] || 0;
                 addModalField(mes, `value${index}`, valor, '');
+            });
+            break;
+        case 'monthlyStatusChart':
+            // Para monthlyStatusChart criamos campos para cada dataset e mês
+            const statusDatasets = charts[chartId]?.data?.datasets || [];
+            statusDatasets.forEach((ds, dsIndex) => {
+                const dsLabel = ds.label || `Dataset ${dsIndex+1}`;
+                const container = document.createElement('div');
+                container.classList.add('col-span-2');
+                const title = document.createElement('h4');
+                title.className = 'text-white font-semibold mb-2';
+                title.textContent = dsLabel;
+                container.appendChild(title);
+
+                const grid = document.createElement('div');
+                grid.className = 'grid grid-cols-3 gap-2 mb-4';
+
+                mesesCompletos.forEach((mes, index) => {
+                    const value = ds.data[index] || 0;
+                    const inputId = `status_${dsIndex}_${index}`;
+                    const fieldWrapper = document.createElement('div');
+                    fieldWrapper.innerHTML = `
+                        <label for="${inputId}" class="block text-gray-300 text-sm font-medium mb-1">${mes}</label>
+                        <input type="number" id="${inputId}" value="${value}" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
+                    `;
+                    grid.appendChild(fieldWrapper);
+                });
+
+                container.appendChild(grid);
+                modalContent.appendChild(container);
             });
             break;
         case 'maintenanceTypeChart':
@@ -378,14 +505,92 @@ function updateChartData() {
     const chartId = modal.dataset.currentChart;
     const chart = charts[chartId];
     
-    if (!chart) return;
+    if (!chart || !dashboardData) return;
     
     const inputs = modal.querySelectorAll('input[type="number"]');
     const newData = Array.from(inputs).map(input => Number(input.value));
     
-    // Atualizar dados do gráfico
-    chart.data.datasets[0].data = newData;
-    chart.update();
+    switch (chartId) {
+        case 'monthlyCostsChart':
+            dashboardData.monthly_costs = newData;
+            dashboardOverrides.monthly_costs = newData.slice();
+            saveOverrides();
+            break;
+        case 'monthlyCorrectivesChart':
+            dashboardData.monthly_correctives = newData;
+            dashboardOverrides.monthly_correctives = newData.slice();
+            saveOverrides();
+            break;
+        case 'maintenanceTypeChart':
+            const maintenanceTypeLabels = charts[chartId]?.data?.labels || [];
+            const newMaintenanceTypeCounts = {};
+            maintenanceTypeLabels.forEach((label, i) => {
+                newMaintenanceTypeCounts[label] = newData[i];
+            });
+            dashboardData.additionalData.maintenanceTypeCounts = newMaintenanceTypeCounts;
+            dashboardOverrides.additionalData = dashboardOverrides.additionalData || {};
+            dashboardOverrides.additionalData.maintenanceTypeCounts = newMaintenanceTypeCounts;
+            saveOverrides();
+            break;
+        case 'criticalityChart':
+            const criticalityLabels = charts[chartId]?.data?.labels || [];
+            const newCriticalityCounts = {};
+            criticalityLabels.forEach((label, i) => {
+                newCriticalityCounts[label] = newData[i];
+            });
+            dashboardData.additionalData.criticalityCounts = newCriticalityCounts;
+            dashboardOverrides.additionalData = dashboardOverrides.additionalData || {};
+            dashboardOverrides.additionalData.criticalityCounts = newCriticalityCounts;
+            saveOverrides();
+            break;
+        case 'analystChart':
+            const analystLabels = charts[chartId]?.data?.labels || [];
+            const newAnalystCounts = {};
+            analystLabels.forEach((label, i) => {
+                newAnalystCounts[label] = newData[i];
+            });
+            dashboardData.additionalData.analystCounts = newAnalystCounts;
+            dashboardOverrides.additionalData = dashboardOverrides.additionalData || {};
+            dashboardOverrides.additionalData.analystCounts = newAnalystCounts;
+            saveOverrides();
+            break;
+        case 'topEquipmentChart':
+            // Assuming the order of inputs matches the order of topEquipment array
+            const newTopEquipment = dashboardData.additionalData.topEquipment.map((item, i) => ({ ...item, count: newData[i] }));
+            dashboardData.additionalData.topEquipment = newTopEquipment;
+            dashboardOverrides.additionalData = dashboardOverrides.additionalData || {};
+            dashboardOverrides.additionalData.topEquipment = newTopEquipment;
+            saveOverrides();
+            break;
+        case 'monthlyStatusChart':
+            // This chart has multiple datasets and requires a more complex update.
+            // For now, it's skipped. The modal only allows editing of the first dataset.
+            // Implement multiple datasets: inputs should be ordered by dataset then month
+            // We'll detect dataset count from charts[chartId].data.datasets
+            const datasets = charts[chartId].data.datasets || [];
+            const updatedStatus = {};
+            datasets.forEach((ds, dsIndex) => {
+                const label = ds.label || `Dataset ${dsIndex+1}`;
+                updatedStatus[label] = [];
+                for (let i = 0; i < meses.length; i++) {
+                    const inputEl = document.getElementById(`status_${dsIndex}_${i}`);
+                    const val = inputEl ? Number(inputEl.value) : 0;
+                    updatedStatus[label].push(isNaN(val) ? 0 : val);
+                }
+            });
+            dashboardData.monthly_status = updatedStatus;
+            dashboardOverrides.monthly_status = updatedStatus;
+            saveOverrides();
+            break;
+        default:
+            console.warn(`Unknown chartId: ${chartId}. Data not updated in dashboardData.`);
+            break;
+    }
+    
+    // Re-render the dashboard with updated data
+    // Apply overrides and recreate charts without reprocessing raw CSV
+    dashboardData = applyOverridesToDashboardData(dashboardData);
+    createAllCharts(dashboardData);
     
     // Fechar modal
     closeChartEditModal();
@@ -674,6 +879,9 @@ async function loadDashboardData() {
             mtbf: mttrMtbf.mtbf,
             additionalData: additionalData
         };
+        
+    // Aplicar overrides persistidos (se houver)
+    dashboardData = applyOverridesToDashboardData(dashboardData);
         
         updateKPIs(dashboardData.kpis);
         createAllCharts(dashboardData);
@@ -966,7 +1174,10 @@ function updateMTTR() {
     if (dashboardData) {
         dashboardData.mttr = [q1, q2, q3];
         // Recriar o gráfico
-        createMTTRChart(dashboardData.mttr);
+    // Persistir override
+    dashboardOverrides.mttr = [q1, q2, q3];
+    saveOverrides();
+    createMTTRChart(dashboardData.mttr);
     }
 
     // Fechar o modal
@@ -1025,7 +1236,10 @@ function updateMTBF() {
 
     if (dashboardData) {
         dashboardData.mtbf = newMtbfData;
-        createMTBFChart(dashboardData.mtbf);
+    // Persistir override
+    dashboardOverrides.mtbf = newMtbfData.slice();
+    saveOverrides();
+    createMTBFChart(dashboardData.mtbf);
     }
 
     closeMTBFModal();
@@ -1112,6 +1326,8 @@ function createMTTRChart(mttrData) {
             }
         }
     });
+    // Mapear pelo ID do canvas para compatibilidade com o modal de edição
+    charts['mttrChart'] = charts.mttr;
 }
 
 function createMTBFChart(mtbfData) {
@@ -1219,6 +1435,7 @@ function createMTBFChart(mtbfData) {
             }
         }
     });
+    charts['mtbfChart'] = charts.mtbf;
 }
 
 function createMonthlyCostsChart(costsData) {
@@ -1363,6 +1580,7 @@ function createMonthlyCostsChart(costsData) {
             }
         }
     });
+    charts['monthlyCostsChart'] = charts.costs;
 }
 
 function createMonthlyCorrectivesChart(correctivesData) {
@@ -1499,6 +1717,7 @@ function createMonthlyCorrectivesChart(correctivesData) {
             }
         }
     });
+    charts['monthlyCorrectivesChart'] = charts.correctives;
 }
 
 function createMonthlyStatusChart(statusData) {
@@ -1583,6 +1802,7 @@ function createMonthlyStatusChart(statusData) {
             }
         }
     });
+    charts['monthlyStatusChart'] = charts.status;
 }
 
 function createMaintenanceTypeChart(data) {
@@ -1770,6 +1990,8 @@ function createCriticalityChart(data) {
             }
         }
     });
+    charts['maintenanceTypeChart'] = charts.maintenanceType;
+    charts['criticalityChart'] = charts.criticality;
 }
 
 function createTopEquipmentChart(data) {
@@ -1811,6 +2033,7 @@ function createTopEquipmentChart(data) {
             }
         }
     });
+    charts['topEquipmentChart'] = charts.topEquipment;
 }
 
 function createAnalystChart(data) {
@@ -1841,6 +2064,7 @@ function createAnalystChart(data) {
             plugins: { legend: { labels: { color: "white" } } }
         }
     });
+    charts['analystChart'] = charts.analyst;
 }
 
 function filterEquipmentTable(searchText) {
