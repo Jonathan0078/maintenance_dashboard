@@ -297,6 +297,12 @@ function setupEventListeners() {
     const btnMobile = document.getElementById('btn-mobile-menu');
     if (btnMobile) btnMobile.addEventListener('click', openMobileNav);
 
+    // Fechar menu móvel quando clicar fora
+    const mobileNavBackdrop = document.querySelector('#mobileNav > div');
+    if (mobileNavBackdrop) {
+        mobileNavBackdrop.addEventListener('click', closeMobileNav);
+    }
+
 
 function openMobileNav() {
     const nav = document.getElementById('mobileNav');
