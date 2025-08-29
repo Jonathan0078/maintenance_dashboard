@@ -89,6 +89,31 @@
                 </div>
             </header>
 
+            <!-- Filtros do Dashboard -->
+            <div id="dashboard-filters" class="hidden bg-kpi-dark rounded-lg p-4 mb-6">
+                <div class="flex items-center space-x-4">
+                    <label class="text-white">Filtrar por:</label>
+                    <select id="filter-year" class="bg-kpi-dark text-white px-3 py-2 rounded-lg border border-gray-600">
+                        <option value="">Todos os Anos</option>
+                    </select>
+                    <select id="filter-month" class="bg-kpi-dark text-white px-3 py-2 rounded-lg border border-gray-600">
+                        <option value="">Todos os Meses</option>
+                        <option value="0">Janeiro</option>
+                        <option value="1">Fevereiro</option>
+                        <option value="2">Março</option>
+                        <option value="3">Abril</option>
+                        <option value="4">Maio</option>
+                        <option value="5">Junho</option>
+                        <option value="6">Julho</option>
+                        <option value="7">Agosto</option>
+                        <option value="8">Setembro</option>
+                        <option value="9">Outubro</option>
+                        <option value="10">Novembro</option>
+                        <option value="11">Dezembro</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Status de Carregamento -->
             <div id="loading-indicator" class="hidden bg-kpi-dark rounded-lg p-4 mb-6">
                 <div class="flex items-center space-x-3">
@@ -97,7 +122,38 @@
                 </div>
             </div>
 
+                        <!-- View de Edição de Dados -->
+            <div id="edit-view" class="hidden">
+                <div class="bg-kpi-dark rounded-lg p-6 mb-6">
+                    <h2 class="text-xl text-white font-bold mb-4">Editar Dados</h2>
+                    <div class="overflow-x-auto">
+                        <table id="edit-table" class="min-w-full text-white">
+                            <thead class="bg-kpi-main">
+                                <tr>
+                                    <th class="px-4 py-2">Data</th>
+                                    <th class="px-4 py-2">Equipamento</th>
+                                    <th class="px-4 py-2">Tipo</th>
+                                    <th class="px-4 py-2">Descrição</th>
+                                    <th class="px-4 py-2">Duração (h)</th>
+                                    <th class="px-4 py-2">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="edit-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="flex justify-end mt-4 space-x-4">
+                        <button id="btn-cancel-edit" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+                            Cancelar
+                        </button>
+                        <button id="btn-save-edit" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg hover:bg-white">
+                            Salvar Alterações
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Upload de Arquivo -->
+```
             <div id="upload-view" class="hidden space-y-8">
                 <h2 class="text-xl text-white font-semibold mb-4">UPLOAD DE ARQUIVO CSV</h2>
                 <div class="bg-kpi-dark rounded-lg p-6">
