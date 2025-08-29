@@ -190,6 +190,15 @@ function setupEventListeners() {
     const btnEditMtbf = document.getElementById('btn-edit-mtbf');
     if (btnEditMtbf) btnEditMtbf.addEventListener('click', openMTBFModal);
 
+    // Adicionar event listeners para os novos botões de edição de gráficos
+    document.getElementById('btn-edit-monthly-costs')?.addEventListener('click', () => openChartEditModal('monthlyCostsChart', 'Custos Mensais de Manutenção'));
+    document.getElementById('btn-edit-monthly-correctives')?.addEventListener('click', () => openChartEditModal('monthlyCorrectivesChart', 'O.S Corretivas Mensais'));
+    document.getElementById('btn-edit-monthly-status')?.addEventListener('click', () => openChartEditModal('monthlyStatusChart', 'Ordens por Status Mensal'));
+    document.getElementById('btn-edit-maintenance-type')?.addEventListener('click', () => openChartEditModal('maintenanceTypeChart', 'Ordens por Tipo de Manutenção'));
+    document.getElementById('btn-edit-criticality')?.addEventListener('click', () => openChartEditModal('criticalityChart', 'Ordens por Criticidade'));
+    document.getElementById('btn-edit-top-equipment')?.addEventListener('click', () => openChartEditModal('topEquipmentChart', 'Top 5 Equipamentos com Mais Ordens'));
+    document.getElementById('btn-edit-analyst')?.addEventListener('click', () => openChartEditModal('analystChart', 'Ordens por Analista'));
+
     // Preencher anos disponíveis
     populateYearFilter();
     
@@ -295,54 +304,8 @@ async function initializeDashboard() {
 }
 
 function addChartEditButtons() {
-    const chartConfigs = {
-        'monthlyCostsChart': 'Custos Mensais',
-        'monthlyCorrectivesChart': 'Manutenções Corretivas',
-        'monthlyStatusChart': 'Status das Ordens',
-        'maintenanceTypeChart': 'Tipos de Manutenção',
-        'criticalityChart': 'Criticidade',
-        'topEquipmentChart': 'Top Equipamentos',
-        'analystChart': 'Dados por Analista'
-    };
-
-    // Adicionar event listeners para MTTR e MTBF
-    const btnEditMTTR = document.getElementById('btn-edit-mttr');
-    if (btnEditMTTR) {
-        btnEditMTTR.addEventListener('click', () => {
-            const mttrModal = document.getElementById('mttrModal');
-            if (mttrModal) mttrModal.classList.remove('hidden');
-        });
-    }
-
-    const btnEditMTBF = document.getElementById('btn-edit-mtbf');
-    if (btnEditMTBF) {
-        btnEditMTBF.addEventListener('click', () => {
-            const mtbfModal = document.getElementById('mtbfModal');
-            if (mtbfModal) mtbfModal.classList.remove('hidden');
-        });
-    };
-
-    Object.entries(chartConfigs).forEach(([chartId, title]) => {
-        const chartContainer = document.getElementById(chartId)?.closest('.bg-kpi-dark');
-        if (chartContainer) {
-            // Adicionar botão de edição
-            const editButton = document.createElement('button');
-            editButton.className = 'absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg';
-            editButton.innerHTML = `
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                </svg>
-            `;
-            editButton.onclick = () => openChartEditModal(chartId, title);
-            
-            // Garantir que o container tem position relative
-            if (getComputedStyle(chartContainer).position === 'static') {
-                chartContainer.style.position = 'relative';
-            }
-            
-            chartContainer.appendChild(editButton);
-        }
-    });
+    // Esta função não é mais necessária para criar botões, pois eles são adicionados diretamente no HTML.
+    // Os event listeners para os botões de edição dos gráficos serão configurados em setupEventListeners().
 }
 
 function openChartEditModal(chartId, title) {
