@@ -6,8 +6,11 @@
     <title>Dashboard de Manutenção</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <script>
         tailwind.config = {
@@ -82,6 +85,9 @@
                     <p class="text-white text-2xl font-bold">Dashboard de Manutenção</p>
                 </div>
                 <div class="flex items-center space-x-4 mt-2 md:mt-0">
+                    <button id="btn-save-pdf" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors">
+                        Salvar Relatório (PDF)
+                    </button>
                     <button id="btn-refresh" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg font-semibold hover:bg-white transition-colors">
                         Atualizar Dados
                     </button>
@@ -153,7 +159,6 @@
             </div>
 
             <!-- Upload de Arquivo -->
-```
             <div id="upload-view" class="hidden space-y-8">
                 <h2 class="text-xl text-white font-semibold mb-4">UPLOAD DE ARQUIVO CSV</h2>
                 <div class="bg-kpi-dark rounded-lg p-6">
@@ -221,39 +226,57 @@
                 <!-- Gráficos -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-2">
-                        <h3 class="text-white font-medium mb-4">MTTR (Tempo Médio de Reparo)</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-white font-medium">MTTR (Tempo Médio de Reparo)</h3>
+                        </div>
                         <div class="h-64"><canvas id="mttrChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4">
-                        <h3 class="text-white font-medium mb-4">MTBF (Tempo Médio Entre Falhas)</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-white font-medium">MTBF (Tempo Médio Entre Falhas)</h3>
+                        </div>
                         <div class="h-64"><canvas id="mtbfChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-2">
-                        <h3 class="text-white font-medium mb-4">Custos Mensais de Manutenção</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-white font-medium">Custos Mensais de Manutenção</h3>
+                        </div>
                         <div class="h-64"><canvas id="monthlyCostsChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4">
-                        <h3 class="text-white font-medium mb-4">O.S Corretivas Mensais</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-white font-medium">O.S Corretivas Mensais</h3>
+                        </div>
                         <div class="h-64"><canvas id="monthlyCorrectivesChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
-                        <h3 class="text-white font-medium mb-4">Ordens por Status Mensal</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-white font-medium">Ordens por Status Mensal</h3>
+                        </div>
                         <div class="h-64"><canvas id="monthlyStatusChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
-                        <h3 class="text-white font-medium mb-4">Ordens por Tipo de Manutenção</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-white font-medium">Ordens por Tipo de Manutenção</h3>
+                        </div>
                         <div class="h-64"><canvas id="maintenanceTypeChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
-                        <h3 class="text-white font-medium mb-4">Ordens por Criticidade</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-white font-medium">Ordens por Criticidade</h3>
+                        </div>
                         <div class="h-64"><canvas id="criticalityChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
-                        <h3 class="text-white font-medium mb-4">Top 5 Equipamentos com Mais Ordens</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-white font-medium">Top 5 Equipamentos com Mais Ordens</h3>
+                        </div>
                         <div class="h-64"><canvas id="topEquipmentChart"></canvas></div>
                     </div>
                     <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3">
-                        <h3 class="text-white font-medium mb-4">Ordens por Analista</h3>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-white font-medium">Ordens por Analista</h3>
+                        </div>
                         <div class="h-64"><canvas id="analystChart"></canvas></div>
                     </div>
                 </div>
@@ -304,4 +327,3 @@
     <script src="dashboard.js"></script>
 </body>
 </html>
-

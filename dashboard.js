@@ -8,6 +8,7 @@ const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 const mesesCompletos = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 // Configurações globais do Chart.js para impressão
+Chart.register(ChartDataLabels);
 Chart.defaults.font.size = 12;
 Chart.defaults.color = '#000000';
 Chart.defaults.plugins.title.font.size = 16;
@@ -18,88 +19,130 @@ let selectedYear = '';
 let selectedMonth = '';
 
 // Função para imprimir gráficos
-function printChart(chartId, title) {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-        <html>
-        <head>
-            <title>Impressão - ${title}</title>
-            <style>
-                @page { size: landscape; }
-                body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
-                .container { width: 90vw; height: 80vh; }
-                canvas { background-color: white; }
-                .print-header { 
-                    text-align: center; 
-                    margin-bottom: 20px; 
-                    font-family: Arial, sans-serif;
-                }
-                .print-footer {
-                    text-align: right;
-                    margin-top: 20px;
-                    font-size: 12px;
-                    font-family: Arial, sans-serif;
-                    color: #666;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="print-header">
-                    <h2>${title}</h2>
-                    ${selectedYear || selectedMonth ? 
-                        `<p>Filtro: ${selectedYear ? 'Ano ' + selectedYear : ''} 
-                         ${selectedMonth !== '' ? 'Mês ' + mesesCompletos[selectedMonth] : ''}</p>` 
-                        : ''}
-                </div>
-                <canvas id="printCanvas"></canvas>
-                <div class="print-footer">
-                    Gerado em: ${new Date().toLocaleString('pt-BR')}
-                </div>
-            </div>
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-            <script>
-                const canvas = document.getElementById('printCanvas');
-                const sourceChart = window.opener.charts['${chartId}'];
-                new Chart(canvas, {
-                    type: sourceChart.config.type,
-                    data: sourceChart.config.data,
-                    options: {
-                        ...sourceChart.config.options,
-                        responsive: true,
-                        animation: false,
-                        plugins: {
-                            ...sourceChart.config.options.plugins,
-                            legend: {
-                                ...sourceChart.config.options.plugins.legend,
-                                labels: { color: '#000000', font: { size: 12 } }
-                            }
-                        },
-                        scales: {
-                            x: { 
-                                ...sourceChart.config.options.scales.x,
-                                ticks: { color: '#000000', font: { size: 12 } },
-                                title: { ...sourceChart.config.options.scales.x.title, color: '#000000' },
-                                grid: { color: '#E0E0E0' }
-                            },
-                            y: {
-                                ...sourceChart.config.options.scales.y,
-                                ticks: { color: '#000000', font: { size: 12 } },
-                                title: { ...sourceChart.config.options.scales.y.title, color: '#000000' },
-                                grid: { color: '#E0E0E0' }
-                            }
-                        }
+async function saveChartsAsPDF() {
+    showLoading(true);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+    });
+
+    const chartInfo = [
+        { id: 'mttrChart', title: 'Tempo Médio de Reparo (MTTR)' },
+        { id: 'mtbfChart', title: 'Tempo Médio Entre Falhas (MTBF)' },
+        { id: 'monthlyCostsChart', title: 'Custos Mensais de Manutenção' },
+        { id: 'monthlyCorrectivesChart', title: 'Manutenções Corretivas Mensais' },
+        { id: 'monthlyStatusChart', title: 'Status das Ordens de Manutenção' },
+        { id: 'maintenanceTypeChart', title: 'Distribuição por Tipo de Manutenção' },
+        { id: 'criticalityChart', title: 'Distribuição por Criticidade' },
+        { id: 'topEquipmentChart', title: 'Top 5 Equipamentos com Mais Ordens' },
+        { id: 'analystChart', title: 'Ordens por Analista' }
+    ];
+
+    const filterText = (selectedYear || selectedMonth) 
+        ? `Filtro: ${selectedYear ? 'Ano ' + selectedYear : ''} ${selectedMonth !== '' ? 'Mês ' + mesesCompletos[selectedMonth] : ''}`
+        : 'Filtro: Todos os dados';
+
+    for (let i = 0; i < chartInfo.length; i++) {
+        const { id, title } = chartInfo[i];
+        const chartElement = document.getElementById(id);
+        
+        if (chartElement) {
+            const chartContainer = chartElement.closest('.bg-kpi-dark');
+            if (i > 0) pdf.addPage();
+
+            try {
+                const canvas = await html2canvas(chartContainer, {
+                    scale: 3,
+                    backgroundColor: '#262f4e',
+                    useCORS: true,
+                    onclone: (doc) => {
+                        const clonedCanvas = doc.getElementById(id);
+                        clonedCanvas.style.backgroundColor = 'transparent';
                     }
                 });
-                setTimeout(() => {
-                    window.print();
-                    window.close();
-                }, 500);
-            </script>
-        </body>
-        </html>
-    `);
-    printWindow.document.close();
+
+                const imgData = canvas.toDataURL('image/png');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const margin = 10;
+                
+                const contentWidth = pageWidth - (2 * margin);
+                const contentHeight = pageHeight - (2 * margin) - 20; // Extra space for text
+
+                const imgWidth = canvas.width;
+                const imgHeight = canvas.height;
+                const ratio = Math.min(contentWidth / imgWidth, contentHeight / imgHeight);
+                
+                const finalWidth = imgWidth * ratio;
+                const finalHeight = imgHeight * ratio;
+
+                const x = (pageWidth - finalWidth) / 2;
+                let y = margin;
+
+                // Add filter text
+                pdf.setFontSize(10);
+                pdf.setTextColor(100, 100, 100);
+                pdf.text(filterText, margin, y);
+                y += 10;
+
+                // Add chart image
+                pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
+                y += finalHeight + 5;
+
+                // Add extra info
+                pdf.setFontSize(12);
+                pdf.setTextColor(0, 0, 0);
+                let extraInfo = '';
+                if (dashboardData) {
+                    switch (id) {
+                        case 'monthlyCostsChart':
+                            const totalCost = dashboardData.monthly_costs.reduce((a, b) => a + b, 0);
+                            const avgCost = totalCost / 12;
+                            extraInfo = `Custo Total: R$ ${totalCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})} | Média Mensal: R$ ${avgCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+                            break;
+                        case 'monthlyCorrectivesChart':
+                            const totalCorrectives = dashboardData.monthly_correctives.reduce((a, b) => a + b, 0);
+                            const avgCorrectives = totalCorrectives / 12;
+                            extraInfo = `Total de Corretivas: ${totalCorrectives} | Média Mensal: ${avgCorrectives.toFixed(1)}`;
+                            break;
+                        case 'mttrChart':
+                            const avgMttr = dashboardData.mttr.reduce((a, b) => a + b, 0) / dashboardData.mttr.length;
+                            extraInfo = `Média Geral MTTR: ${avgMttr.toFixed(1)} horas`;
+                            break;
+                        case 'mtbfChart':
+                             const avgMtbf = dashboardData.mtbf.reduce((a, b) => a + b, 0) / dashboardData.mtbf.length;
+                            extraInfo = `Média Geral MTBF: ${avgMtbf.toFixed(1)} horas`;
+                            break;
+                        case 'maintenanceTypeChart':
+                            const totalMaint = Object.values(dashboardData.additionalData.maintenanceTypeCounts).reduce((a, b) => a + b, 0);
+                            extraInfo = `Total de Ordens: ${totalMaint}`;
+                            break;
+                        case 'criticalityChart':
+                            const totalCrit = Object.values(dashboardData.additionalData.criticalityCounts).reduce((a, b) => a + b, 0);
+                            extraInfo = `Total de Ordens: ${totalCrit}`;
+                            break;
+                        case 'analystChart':
+                            const totalAnalyst = Object.values(dashboardData.additionalData.analystCounts).reduce((a, b) => a + b, 0);
+                            extraInfo = `Total de Ordens: ${totalAnalyst}`;
+                            break;
+                    }
+                }
+                
+                if(extraInfo) {
+                    pdf.text(extraInfo, margin, y);
+                }
+
+
+            } catch (error) {
+                console.error(`Erro ao gerar o canvas para o gráfico ${id}:`, error);
+            }
+        }
+    }
+
+    pdf.save('dashboard-relatorio-de-manutencao.pdf');
+    showLoading(false);
 }
 
 // Mapeamento de tipos de manutenção
@@ -125,6 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function setupEventListeners() {
     document.getElementById('btn-refresh').addEventListener('click', loadDashboardData);
+    document.getElementById('btn-save-pdf').addEventListener('click', saveChartsAsPDF);
     document.getElementById('btn-dashboard').addEventListener('click', () => showView('dashboard'));
     document.getElementById('btn-upload').addEventListener('click', () => showView('upload'));
     document.getElementById('btn-analytics').addEventListener('click', () => showView('analytics'));
@@ -1089,6 +1133,7 @@ function createMaintenanceTypeChart(data) {
 
     const labels = Object.keys(data);
     const values = Object.values(data);
+    const total = values.reduce((a, b) => a + b, 0);
 
     charts.maintenanceType = new Chart(ctx.getContext('2d'), {
         type: "doughnut",
@@ -1100,13 +1145,46 @@ function createMaintenanceTypeChart(data) {
                     "#00f6ff", "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
                     "#8b5cf6", "#ec4899", "#f97316", "#6b7280", "#a855f7"
                 ],
-                hoverOffset: 4
+                hoverOffset: 4,
+                borderColor: '#262f4e', // Add border to separate slices
+                borderWidth: 2
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: "white" } } }
+            plugins: { 
+                legend: { 
+                    labels: { color: "white" },
+                    position: 'right' 
+                },
+                title: {
+                    display: true,
+                    text: `Ordens por Tipo de Manutenção (Total: ${total})`,
+                    color: 'white',
+                    font: { size: 16 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                },
+                datalabels: {
+                    formatter: (value, ctx) => {
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return `${percentage}%`;
+                    },
+                    color: '#fff',
+                    font: {
+                        weight: 'bold'
+                    }
+                }
+            }
         }
     });
 }
