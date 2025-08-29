@@ -20,6 +20,7 @@ const TIPO_MAPPING = {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
+    alert("JavaScript carregado!");
     initializeDashboard();
     setupEventListeners();
     updateDateTime();
@@ -986,68 +987,114 @@ function loadEquipmentAnalysis() {
 
 function loadPredictiveAnalysis() {
     if (!currentExcelData) return;
-    
+
     try {
         // Análise de risco por equipamento
-        const equipmentRisk = {};
-        
+        const equipmentStats = {};
+
         currentExcelData.forEach(row => {
             const equipment = row['Nome Equipamento'];
             if (!equipment) return;
-            
-            if (!equipmentRisk[equipment]) {
-                equipmentRisk[equipment] = {
-                    equipment: equipment,
-                    total_count: 0,
+
+            if (!equipmentStats[equipment]) {
+                equipmentStats[equipment] = {
+                    name: equipment,
+                    total_orders: 0,
                     corrective_count: 0,
-                    risk_score: 0
+                    cost: 0,
+                    criticality_sum: 0,
+                    criticality_count: 0
                 };
             }
-            
-            equipmentRisk[equipment].total_count++;
-            
+
+            equipmentStats[equipment].total_orders++;
+
             if (row['Tipo de Manutenção'] === 7) {
-                equipmentRisk[equipment].corrective_count++;
+                equipmentStats[equipment].corrective_count++;
+            }
+
+            const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+            const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
+            equipmentStats[equipment].cost += valorMaterial + valorMaoObra;
+
+            const criticality = parseInt(row['Criticidade']);
+            if (!isNaN(criticality)) {
+                equipmentStats[equipment].criticality_sum += criticality;
+                equipmentStats[equipment].criticality_count++;
             }
         });
-        
-        // Calcular score de risco e ordenar
-        const riskArray = Object.values(equipmentRisk)
-            .map(eq => {
-                eq.risk_score = eq.total_count > 0 ? Math.round((eq.corrective_count / eq.total_count) * 100) : 0;
-                return eq;
-            })
-            .sort((a, b) => b.risk_score - a.risk_score)
-            .slice(0, 5);
-        
+
+        // Calcular médias e ratios
+        const equipmentArray = Object.values(equipmentStats).map(eq => {
+            return {
+                ...eq,
+                corrective_ratio: eq.total_orders > 0 ? (eq.corrective_count / eq.total_orders) * 100 : 0,
+                avg_criticality: eq.criticality_count > 0 ? eq.criticality_sum / eq.criticality_count : 0
+            };
+        });
+
+        // Normalizar os valores para uma escala de 0-100
+        const maxCost = Math.max(...equipmentArray.map(eq => eq.cost));
+        const maxCriticality = Math.max(...equipmentArray.map(eq => eq.avg_criticality));
+
+        const normalizedArray = equipmentArray.map(eq => {
+            const cost_normalized = maxCost > 0 ? (eq.cost / maxCost) * 100 : 0;
+            const criticality_normalized = maxCriticality > 0 ? (eq.avg_criticality / maxCriticality) * 100 : 0;
+            return {
+                ...eq,
+                cost_normalized,
+                criticality_normalized
+            };
+        });
+
+        // Calcular score de risco com pesos
+        const weightedArray = normalizedArray.map(eq => {
+            const risk_score = (0.5 * eq.corrective_ratio) + (0.3 * eq.cost_normalized) + (0.2 * eq.criticality_normalized);
+            return {
+                ...eq,
+                risk_score
+            };
+        });
+
+        // Ordenar por score de risco e pegar o top 10
+        const riskArray = weightedArray.sort((a, b) => b.risk_score - a.risk_score).slice(0, 10);
+
         const content = document.getElementById('predictive-analysis-content');
         if (content) {
             content.innerHTML = `
-                <h3 class="text-white font-semibold mb-4">Equipamentos com Maior Risco</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${riskArray.map(eq => `
-                        <div class="bg-kpi-main rounded-lg p-4">
-                            <h4 class="text-white font-medium mb-2">${eq.equipment}</h4>
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-gray-300">Score de Risco:</span>
-                                <span class="text-${eq.risk_score > 50 ? 'red' : eq.risk_score > 25 ? 'yellow' : 'green'}-400 font-bold">
-                                    ${eq.risk_score}%
-                                </span>
-                            </div>
-                            <div class="w-full bg-gray-700 rounded-full h-2">
-                                <div class="bg-${eq.risk_score > 50 ? 'red' : eq.risk_score > 25 ? 'yellow' : 'green'}-400 h-2 rounded-full" 
-                                     style="width: ${eq.risk_score}%"></div>
-                            </div>
-                            <div class="mt-2 text-sm text-gray-400">
-                                ${eq.corrective_count} corretivas de ${eq.total_count} total
-                            </div>
-                        </div>
-                    `).join('')}
+                <h3 class="text-white font-semibold mb-4">Top 10 Equipamentos com Maior Risco</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-white">
+                        <thead>
+                            <tr class="border-b border-gray-600">
+                                <th class="text-left p-2">Equipamento</th>
+                                <th class="text-left p-2">Score de Risco</th>
+                                <th class="text-left p-2">Taxa de Corretivas (%)</th>
+                                <th class="text-left p-2">Custo Total</th>
+                                <th class="text-left p-2">Criticidade Média</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${riskArray.map(eq => `
+                                <tr class="border-b border-gray-700">
+                                    <td class="p-2 text-sm">${eq.name}</td>
+                                    <td class="p-2 font-bold text-red-400">${eq.risk_score.toFixed(2)}</td>
+                                    <td class="p-2">${eq.corrective_ratio.toFixed(2)}%</td>
+                                    <td class="p-2">R$ ${eq.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                    <td class="p-2">${eq.avg_criticality.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
                 </div>
             `;
         }
     } catch (error) {
         console.error('Erro ao carregar análise preditiva:', error);
+        const content = document.getElementById('predictive-analysis-content');
+        if (content) {
+            content.innerHTML = `<p class="text-red-500">Erro ao carregar a análise preditiva: ${error.message}</p>`;
+        }
     }
 }
 
