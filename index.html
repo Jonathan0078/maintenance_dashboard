@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Manutenção - Versão Melhorada</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
+        const firebaseConfig = {
+            apiKey: "your-api-key",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "your-app-id"
+        };
+        
+        try {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            window.firebase = { db, collection, addDoc, getDocs, doc, setDoc, getDoc };
+        } catch (e) {
+            console.error('Erro ao inicializar Firebase, algumas funcionalidades podem não estar disponíveis.', e);
+        }
+    </script>
+    
+    <link rel="stylesheet" href="styles_melhorado.css">
+</head>
+<body class="bg-kpi-main font-sans">
+    <div class="flex min-h-screen">
+        <!-- Barra Lateral -->
+        <aside class="bg-kpi-dark w-20 lg:w-64 flex flex-col py-6 transition-all duration-300" id="sidebar">
+            <div class="flex items-center justify-center lg:justify-start lg:px-6 mb-8">
+                <div class="w-10 h-10 bg-kpi-accent rounded-md flex items-center justify-center">
+                    <svg class="w-6 h-6 text-kpi-dark" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                    </svg>
+                </div>
+                <span class="hidden lg:block ml-3 text-white font-bold text-xl">Dashboard</span>
+            </div>
+            
+            <nav class="flex-1 space-y-2 px-2 lg:px-4">
+                <button id="btn-dashboard" class="nav-btn active" data-view="dashboard">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V4zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                    </svg>
+                    <span class="hidden lg:block">Dashboard</span>
+                </button>
+                
+                <button id="btn-upload" class="nav-btn" data-view="upload">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <span class="hidden lg:block">Upload CSV</span>
+                </button>
+                
+                <button id="btn-analytics" class="nav-btn" data-view="analytics">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    <span class="hidden lg:block">Análises</span>
+                </button>
+                
+                <button id="btn-predictive" class="nav-btn" data-view="predictive">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <span class="hidden lg:block">Preditiva</span>
+                </button>
+                
+                <button id="btn-filters" class="nav-btn" data-view="filters">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                    </svg>
+                    <span class="hidden lg:block">Filtros</span>
+                </button>
+                
+                <button id="btn-settings" class="nav-btn" data-view="settings">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <span class="hidden lg:block">Configurações</span>
+                </button>
+            </nav>
+            
+            <div class="px-2 lg:px-4 space-y-2">
+                <button id="btn-export" class="nav-btn">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span class="hidden lg:block">Exportar</span>
+                </button>
+                
+                <button id="btn-toggle-sidebar" class="nav-btn lg:hidden">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="flex-1 p-4 md:p-8 overflow-y-auto">
+            <!-- Header -->
+            <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                <div>
+                    <p class="text-gray-400 text-lg">Bem-vindo ao</p>
+                    <p class="text-white text-2xl font-bold">Dashboard de Manutenção</p>
+                    <p class="text-gray-400 text-sm mt-1" id="data-info">Nenhum dado carregado</p>
+                </div>
+                <div class="flex items-center space-x-4 mt-2 md:mt-0">
+                    <button id="btn-refresh" class="btn-primary">
+                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Atualizar
+                    </button>
+                    <div id="date-time-display" class="text-gray-300 text-lg font-medium"></div>
+                </div>
+            </header>
+
+            <!-- Alertas -->
+            <div id="alerts-container" class="mb-6 space-y-2"></div>
+
+            <!-- Status de Carregamento -->
+            <div id="loading-indicator" class="hidden bg-kpi-dark rounded-lg p-4 mb-6">
+                <div class="flex items-center space-x-3">
+                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-kpi-accent"></div>
+                    <span class="text-white">Carregando dados...</span>
+                </div>
+            </div>
+
+            <!-- Upload de Arquivo -->
+            <div id="upload-view" class="hidden space-y-8">
+                <h2 class="text-xl text-white font-semibold mb-4">UPLOAD DE ARQUIVO CSV</h2>
+                <div class="bg-kpi-dark rounded-lg p-6">
+                    <div class="mb-4">
+                        <label class="block text-white text-sm font-medium mb-2">
+                            Selecione um arquivo CSV (.csv)
+                        </label>
+                        <input type="file" id="excel-file-input" accept=".csv" 
+                               class="file-input">
+                    </div>
+                    <button id="btn-process-file" class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
+                        Processar Arquivo
+                    </button>
+                    <div id="upload-status" class="mt-4 text-sm text-gray-400">
+                        Selecione um arquivo CSV para começar a análise.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filtros -->
+            <div id="filters-view" class="hidden space-y-8">
+                <h2 class="text-xl text-white font-semibold mb-4">FILTROS AVANÇADOS</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-kpi-dark rounded-lg p-6">
+                        <h3 class="text-white font-medium mb-4">Período</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-gray-300 text-sm mb-2">Data Início</label>
+                                <input type="date" id="filter-date-start" class="form-input">
+                            </div>
+                            <div>
+                                <label class="block text-gray-300 text-sm mb-2">Data Fim</label>
+                                <input type="date" id="filter-date-end" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-kpi-dark rounded-lg p-6">
+                        <h3 class="text-white font-medium mb-4">Tipo de Manutenção</h3>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="filter-corrective" class="form-checkbox" checked>
+                                <span class="ml-2 text-gray-300">Corretiva</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="filter-preventive" class="form-checkbox" checked>
+                                <span class="ml-2 text-gray-300">Preventiva</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="filter-predictive" class="form-checkbox" checked>
+                                <span class="ml-2 text-gray-300">Preditiva</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="filter-improvement" class="form-checkbox" checked>
+                                <span class="ml-2 text-gray-300">Melhoria</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-kpi-dark rounded-lg p-6">
+                        <h3 class="text-white font-medium mb-4">Equipamento</h3>
+                        <select id="filter-equipment" class="form-select">
+                            <option value="">Todos os equipamentos</option>
+                        </select>
+                    </div>
+                    
+                    <div class="bg-kpi-dark rounded-lg p-6">
+                        <h3 class="text-white font-medium mb-4">Analista</h3>
+                        <select id="filter-analyst" class="form-select">
+                            <option value="">Todos os analistas</option>
+                        </select>
+                    </div>
+                    
+                    <div class="bg-kpi-dark rounded-lg p-6">
+                        <h3 class="text-white font-medium mb-4">Status</h3>
+                        <select id="filter-status" class="form-select">
+                            <option value="">Todos os status</option>
+                            <option value="Não Iniciada">Não Iniciada</option>
+                            <option value="Requisitada">Requisitada</option>
+                            <option value="Iniciada">Iniciada</option>
+                            <option value="Liberada">Liberada</option>
+                            <option value="Suspensa">Suspensa</option>
+                        </select>
+                    </div>
+                    
+                    <div class="bg-kpi-dark rounded-lg p-6 flex flex-col justify-end">
+                        <div class="space-y-2">
+                            <button id="btn-apply-filters" class="btn-primary w-full">
+                                Aplicar Filtros
+                            </button>
+                            <button id="btn-clear-filters" class="btn-secondary w-full">
+                                Limpar Filtros
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Principal -->
+            <div id="dashboard-view" class="space-y-8">
+                <!-- Filtros Rápidos -->
+                <div class="bg-kpi-dark rounded-lg p-4">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <span class="text-white font-medium">Filtros Rápidos:</span>
+                        <button class="quick-filter active" data-period="all">Todos</button>
+                        <button class="quick-filter" data-period="month">Este Mês</button>
+                        <button class="quick-filter" data-period="quarter">Este Trimestre</button>
+                        <button class="quick-filter" data-period="year">Este Ano</button>
+                        <div class="ml-auto">
+                            <span class="text-gray-400 text-sm" id="filter-status-text">Mostrando todos os dados</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPIs Principais -->
+                <div class="mb-8">
+                    <h2 class="text-xl text-white font-semibold mb-4">VISÃO GERAL DO PAINEL</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                        <div class="kpi-card bg-white text-gray-800">
+                            <h3 class="font-medium text-gray-500">Corretivas</h3>
+                            <p id="kpi-corretivas" class="text-4xl font-bold">0</p>
+                            <div class="kpi-trend" id="trend-corretivas"></div>
+                        </div>
+                        <div class="kpi-card bg-white text-gray-800">
+                            <h3 class="font-medium text-gray-500">Preventivas</h3>
+                            <p id="kpi-preventivas" class="text-4xl font-bold">0</p>
+                            <div class="kpi-trend" id="trend-preventivas"></div>
+                        </div>
+                        <div class="kpi-card bg-warning text-white">
+                            <h3 class="font-medium">Preventivas Venc.</h3>
+                            <p id="kpi-preventivas-venc" class="text-4xl font-bold">0</p>
+                            <div class="kpi-trend" id="trend-preventivas-venc"></div>
+                        </div>
+                        <div class="kpi-card bg-white text-gray-800">
+                            <h3 class="font-medium text-gray-500">Preditivas</h3>
+                            <p id="kpi-preditivas" class="text-4xl font-bold">0</p>
+                            <div class="kpi-trend" id="trend-preditivas"></div>
+                        </div>
+                        <div class="kpi-card bg-white text-gray-800">
+                            <h3 class="font-medium text-gray-500">Melhorias</h3>
+                            <p id="kpi-melhorias" class="text-4xl font-bold">0</p>
+                            <div class="kpi-trend" id="trend-melhorias"></div>
+                        </div>
+                        <div class="kpi-card bg-white text-gray-800">
+                            <h3 class="font-medium text-gray-500">Equipamentos</h3>
+                            <p id="kpi-equipamentos" class="text-4xl font-bold">0</p>
+                        </div>
+                        <div class="kpi-card bg-white text-gray-800">
+                            <h3 class="font-medium text-gray-500">O.S Total</h3>
+                            <p id="kpi-os-total" class="text-4xl font-bold">0</p>
+                            <div class="kpi-trend" id="trend-os-total"></div>
+                        </div>
+                        <div class="kpi-card bg-success text-white">
+                            <h3 class="font-medium">Disponibilidade</h3>
+                            <p id="kpi-availability" class="text-4xl font-bold">0%</p>
+                            <div class="kpi-trend" id="trend-availability"></div>
+                        </div>
+                        <div class="kpi-card bg-success text-white col-span-2">
+                            <h3 class="font-medium">Custo Total</h3>
+                            <p id="kpi-custo-total" class="text-4xl font-bold">R$ 0,00</p>
+                            <div class="kpi-trend" id="trend-custo-total"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráficos -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="chart-container lg:col-span-2">
+                        <h3 class="chart-title">MTTR (Tempo Médio de Reparo)</h3>
+                        <div class="chart-wrapper"><canvas id="mttrChart"></canvas></div>
+                    </div>
+                    <div class="chart-container">
+                        <h3 class="chart-title">MTBF (Tempo Médio Entre Falhas)</h3>
+                        <div class="chart-wrapper"><canvas id="mtbfChart"></canvas></div>
+                    </div>
+                    <div class="chart-container lg:col-span-2">
+                        <h3 class="chart-title">Custos Mensais de Manutenção</h3>
+                        <div class="chart-wrapper"><canvas id="monthlyCostsChart"></canvas></div>
+                    </div>
+                    <div class="chart-container">
+                        <h3 class="chart-title">O.S Corretivas Mensais</h3>
+                        <div class="chart-wrapper"><canvas id="monthlyCorrectivesChart"></canvas></div>
+                    </div>
+                    <div class="chart-container lg:col-span-3">
+                        <h3 class="chart-title">Ordens por Status Mensal</h3>
+                        <div class="chart-wrapper"><canvas id="monthlyStatusChart"></canvas></div>
+                    </div>
+                    <div class="chart-container lg:col-span-3">
+                        <h3 class="chart-title">Ordens por Tipo de Manutenção</h3>
+                        <div class="chart-wrapper"><canvas id="maintenanceTypeChart"></canvas></div>
+                    </div>
+                    <div class="chart-container lg:col-span-3">
+                        <h3 class="chart-title">Ordens por Criticidade</h3>
+                        <div class="chart-wrapper"><canvas id="criticalityChart"></canvas></div>
+                    </div>
+                    <div class="chart-container lg:col-span-3">
+                        <h3 class="chart-title">Top 5 Equipamentos com Mais Ordens</h3>
+                        <div class="chart-wrapper"><canvas id="topEquipmentChart"></canvas></div>
+                    </div>
+                    <div class="chart-container lg:col-span-3">
+                        <h3 class="chart-title">Ordens por Analista</h3>
+                        <div class="chart-wrapper"><canvas id="analystChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Análise de Equipamentos -->
+            <div id="analytics-view" class="hidden space-y-8">
+                <h2 class="text-xl text-white font-semibold mb-4">ANÁLISE POR EQUIPAMENTO</h2>
+                <div class="bg-kpi-dark rounded-lg p-6">
+                    <div id="equipment-analysis-content">
+                        <p class="text-gray-400">Carregue um arquivo CSV para ver a análise de equipamentos.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Análise Preditiva -->
+            <div id="predictive-view" class="hidden space-y-8">
+                <h2 class="text-xl text-white font-semibold mb-4">ANÁLISE PREDITIVA</h2>
+                <div class="bg-kpi-dark rounded-lg p-6">
+                    <div id="predictive-analysis-content">
+                        <p class="text-gray-400">Carregue um arquivo CSV para ver a análise preditiva.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configurações -->
+            <div id="settings-view" class="hidden space-y-8">
+                <h2 class="text-xl text-white font-semibold mb-4">CONFIGURAÇÕES</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-kpi-dark rounded-lg p-6">
+                        <h3 class="text-white font-medium mb-4">Tema</h3>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="theme" value="dark" class="form-radio" checked>
+                                <span class="ml-2 text-gray-300">Escuro</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="theme" value="light" class="form-radio">
+                                <span class="ml-2 text-gray-300">Claro</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-kpi-dark rounded-lg p-6">
+                        <h3 class="text-white font-medium mb-4">Notificações</h3>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" class="form-checkbox" checked>
+                                <span class="ml-2 text-gray-300">Preventivas vencidas</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="form-checkbox" checked>
+                                <span class="ml-2 text-gray-300">Equipamentos críticos</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="dashboard_melhorado.js"></script>
+</body>
+</html>
+

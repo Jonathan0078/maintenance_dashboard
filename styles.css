@@ -1,0 +1,196 @@
+/* Configurações customizadas do Tailwind CSS */
+@import url('https://cdn.tailwindcss.com');
+
+/* Configuração das cores customizadas */
+:root {
+    --kpi-main: #30395e;
+    --kpi-dark: #262f4e;
+    --kpi-accent: #00f6ff;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+}
+
+/* Classes customizadas para as cores */
+.bg-kpi-main {
+    background-color: var(--kpi-main);
+}
+
+.bg-kpi-dark {
+    background-color: var(--kpi-dark);
+}
+
+.bg-kpi-accent {
+    background-color: var(--kpi-accent);
+}
+
+.text-kpi-main {
+    color: var(--kpi-main);
+}
+
+.text-kpi-dark {
+    color: var(--kpi-dark);
+}
+
+.text-kpi-accent {
+    color: var(--kpi-accent);
+}
+
+.bg-success {
+    background-color: var(--success);
+}
+
+.bg-warning {
+    background-color: var(--warning);
+}
+
+.bg-danger {
+    background-color: var(--danger);
+}
+
+.text-success {
+    color: var(--success);
+}
+
+.text-warning {
+    color: var(--warning);
+}
+
+.text-danger {
+    color: var(--danger);
+}
+
+.border-danger {
+    border-color: var(--danger);
+}
+
+/* Estilos adicionais para melhor aparência */
+.hover\:bg-white:hover {
+    background-color: white;
+}
+
+.hover\:text-kpi-accent:hover {
+    color: var(--kpi-accent);
+}
+
+.hover\:file\:bg-kpi-accent:hover input[type="file"]::file-selector-button {
+    background-color: var(--kpi-accent);
+}
+
+.hover\:file\:text-kpi-main:hover input[type="file"]::file-selector-button {
+    color: var(--kpi-main);
+}
+
+/* Animações */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Estilos para tabelas */
+table {
+    border-collapse: collapse;
+}
+
+th, td {
+    border-bottom: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+/* Estilos para inputs de arquivo */
+input[type="file"]::file-selector-button {
+    margin-right: 1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background-color: var(--kpi-main);
+    color: var(--kpi-accent);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background-color: var(--kpi-accent);
+    color: var(--kpi-main);
+}
+
+/* Responsividade adicional */
+@media (max-width: 768px) {
+    .grid-cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    
+    .md\:grid-cols-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    
+    .lg\:grid-cols-6 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* Estilos para gráficos */
+canvas {
+    max-height: 16rem;
+}
+
+/* Estilos para barras de progresso */
+.progress-bar {
+    height: 0.625rem;
+    background-color: rgba(75, 85, 99, 1);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--danger);
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+}
+
+/* Estilos para cards de risco */
+.risk-card {
+    background-color: var(--kpi-dark);
+    border: 1px solid var(--danger);
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+/* Transições suaves */
+.transition-colors {
+    transition-property: color, background-color, border-color;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+}
+
+/* Estilos para botões */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Estilos para scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--kpi-dark);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--kpi-accent);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 246, 255, 0.8);
+}
+
