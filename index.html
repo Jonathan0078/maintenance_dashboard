@@ -1,539 +1,301 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" class="">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Manutenção</title>
+    <title>Dashboard de Manutenção (Versão Completa)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
-                extend: {
-                    colors: {
-                        'kpi-main': '#30395e',
-                        'kpi-dark': '#262f4e',
-                        'kpi-accent': '#00f6ff',
-                        'success': '#10b981',
-                        'warning': '#f59e0b',
-                        'danger': '#ef4444'
-                    }
+                extend: {                    
                 }
             }
         }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Bibliotecas de Exportação -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-kpi-main font-sans">
-    <div class="flex min-h-screen">
-        <!-- Barra Lateral -->
-            <!-- Barra lateral: escondida em telas pequenas -->
-            <aside class="hidden md:flex bg-kpi-dark w-20 flex-col items-center py-6 space-y-8 fixed h-full">
-                        <img src="logo-mor-2x.png" alt="Logo" class="w-16 pointer-events-none select-none">
-            <button id="btn-dashboard" class="p-2 text-kpi-accent bg-gray-700/50 rounded-lg" title="Dashboard">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V4zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-                </svg>
-            </button>
-            <button id="btn-upload" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Upload CSV">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                </svg>
-            </button>
-            <button id="btn-analytics" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Análises">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                </svg>
-            </button>
-            <button id="btn-predictive" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Preditiva">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                </svg>
-            </button>
-            <button id="btn-edit" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Dados">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                </svg>
-            </button>
-            <button id="btn-settings" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Configurações">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-            </button>
-            <button id="btn-export" class="p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Exportar">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-            </button>
-        </aside>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
 
-        <!-- Conteúdo Principal -->
-            <main class="flex-1 p-4 md:p-8 overflow-y-auto md:ml-20 ml-0">
-            <!-- Header -->
-            <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-                <div>
-                    <p class="text-gray-400 text-lg">Bem-vindo ao</p>
-                    <p class="text-white text-2xl font-bold">Dashboard de Manutenção</p>
+    <div id="app">
+        <!-- TELA DE LOGIN -->
+        <div id="login-screen" class="flex flex-col items-center justify-center min-h-screen text-white p-4">
+            <div class="text-center mb-8">
+                <h1 id="login-greeting" class="text-5xl font-bold"></h1>
+                <p id="login-clock" class="font-bold tracking-wider mt-2"></p>
+            </div>
+            <div class="w-full max-w-sm bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-bold text-center mb-6">Aceder ao Painel</h2>
+                <form id="login-form">
+                    <div class="mb-4"><label for="email" class="block mb-2 text-sm">Email</label><input type="email" id="email" class="form-input bg-gray-200 text-gray-800" required></div>
+                    <div class="mb-6"><label for="password" class="block mb-2 text-sm">Senha</label><input type="password" id="password" class="form-input bg-gray-200 text-gray-800" required></div>
+                    <p id="auth-error" class="text-red-400 text-center text-sm mb-4 h-5"></p>
+                    <button type="submit" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition">Entrar</button>
+                    <button type="button" id="btn-show-test-info" class="w-full mt-3 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 rounded-lg transition">Credenciais de Teste</button>
+                    <button type="button" id="btn-test-mode" class="w-full mt-3 bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 rounded-lg transition">Entrar em Modo de Teste (Sem Salvar)</button>
+                </form>
+                 <div id="test-credentials" class="hidden mt-4 p-3 bg-white/20 rounded-lg text-sm">
+                    <p class="font-bold mb-2">Use os dados abaixo para o login real:</p>
+                    <div class="flex items-center justify-between">
+                        <span>Email: <code id="test-email">teste123@email.com</code></span>
+                        <span class="copy-btn" title="Copiar" onclick="copyToClipboard('teste123@email.com')"><i data-lucide="copy" class="w-4 h-4"></i></span>
+                    </div>
+                    <div class="flex items-center justify-between mt-1">
+                        <span>Senha: <code id="test-password">teste123</code></span>
+                        <span class="copy-btn" title="Copiar" onclick="copyToClipboard('teste123')"><i data-lucide="copy" class="w-4 h-4"></i></span>
+                    </div>
                 </div>
-                <div class="flex items-center space-x-4 mt-2 md:mt-0">
-                    <!-- Botão de menu mobile (visível em telas menores) -->
-                    <button id="btn-mobile-menu" class="md:hidden p-2 text-gray-300 bg-transparent rounded-lg">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                        </svg>
+            </div>
+        </div>
+
+        <!-- CONTAINER DO DASHBOARD -->
+        <div id="dashboard-container" class="hidden h-screen">
+            <div class="flex h-full">
+                <div id="sidebar-overlay" class="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('active'); this.classList.remove('active');"></div>
+                <aside id="sidebar" class="sidebar w-full h-full fixed inset-0 flex flex-col items-center justify-center text-white z-40">
+                    <div class="sidebar-header text-3xl font-bold mb-8">MENU PRINCIPAL</div>
+                    <div id="sidebar-main-actions" class="grid grid-cols-4 gap-6 max-w-4xl mx-auto px-4">
+                        <div class="sidebar-button-container">
+                            <button id="btn-settings" class="sidebar-button btn-disabled" disabled>
+                                <i data-lucide="settings" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Configurações</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-edit" class="sidebar-button btn-disabled" disabled>
+                                <i data-lucide="edit" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Editar Ano</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-compare-years" class="sidebar-button">
+                                <i data-lucide="bar-chart-3" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Comparar Anos</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-pareto-analysis" class="sidebar-button">
+                                <i data-lucide="pie-chart" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Análise Pareto</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-roi-analysis" class="sidebar-button">
+                                <i data-lucide="trending-up" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Análise ROI</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-benchmarking" class="sidebar-button">
+                                <i data-lucide="target" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Benchmarking</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-trends" class="sidebar-button">
+                                <i data-lucide="activity" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Tendências</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-export" class="sidebar-button">
+                                <i data-lucide="download" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Exportar</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-import" class="sidebar-button">
+                                <i data-lucide="upload" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Importar</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-notifications" class="sidebar-button">
+                                <i data-lucide="bell" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Notificações</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-reports" class="sidebar-button">
+                                <i data-lucide="file-text" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Relatórios</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-analytics" class="sidebar-button">
+                                <i data-lucide="bar-chart-2" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Analytics</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-db" class="sidebar-button">
+                                <i data-lucide="database" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Base de Dados</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-refresh" class="sidebar-button">
+                                <i data-lucide="refresh-cw" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Atualizar</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-toggle-dark-mode" class="sidebar-button">
+                                <i data-lucide="moon" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Tema</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-start-tour" class="sidebar-button">
+                                <i data-lucide="play-circle" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Tour</span>
+                        </div>
+                        <div class="sidebar-button-container">
+                            <button id="btn-help" class="sidebar-button">
+                                <i data-lucide="help-circle" class="w-8 h-8 mb-2"></i>
+                            </button>
+                            <span class="sidebar-button-label">Ajuda</span>
+                        </div>
+                    </div>
+                    <button id="sidebar-close" class="absolute top-8 right-8 p-3 rounded-lg bg-red-600 hover:bg-red-700 transition">
+                        <i data-lucide="x" class="w-6 h-6"></i>
                     </button>
-                    <button id="btn-save-pdf" class="bg-green-500 text-white p-2 rounded-lg hover:bg-green-600 transition-colors" title="Salvar Relatório (PDF)">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                        </svg>
-                    </button>
-                    <button id="btn-refresh" class="bg-kpi-accent text-kpi-dark p-2 rounded-lg hover:bg-white transition-colors" title="Atualizar Dados">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
-                    </button>
-                    <div id="date-time-display" class="text-gray-300 text-lg font-medium"></div>
-                </div>
-            </header>
-
-            <!-- Mobile Nav (menu deslizando) -->
-            <div id="mobileNav" class="fixed inset-0 z-50 hidden">
-                <div class="absolute inset-0 bg-black/50" onclick="closeMobileNav()"></div>
-                <nav id="mobileNavPanel" class="absolute left-0 top-0 bottom-0 w-64 bg-kpi-dark p-4 overflow-y-auto transform -translate-x-full transition-transform duration-300">
-                    <div class="flex flex-col space-y-4">
-                        <!-- Logo no menu móvel -->
-                        <div class="flex justify-center mb-6 pt-4">
-                            <img src="logo-mor-2x.png" alt="Logo" class="w-16 pointer-events-none select-none">
-                        </div>
-                        <button onclick="showView('dashboard'); closeMobileNav();" class="flex items-center p-3 text-gray-300 hover:text-kpi-accent rounded-lg">
-                            <svg class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V4zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-                            </svg>
-                            Dashboard
-                        </button>
-                        <button onclick="showView('upload'); closeMobileNav();" class="flex items-center p-3 text-gray-300 hover:text-kpi-accent rounded-lg">
-                            <svg class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                            </svg>
-                            Upload
-                        </button>
-                        <button onclick="showView('analytics'); closeMobileNav();" class="flex items-center p-3 text-gray-300 hover:text-kpi-accent rounded-lg">
-                            <svg class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                            </svg>
-                            Análises
-                        </button>
-                        <button onclick="showView('predictive'); closeMobileNav();" class="flex items-center p-3 text-gray-300 hover:text-kpi-accent rounded-lg">
-                            <svg class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                            </svg>
-                            Preditiva
-                        </button>
-                        <button onclick="showView('edit'); closeMobileNav();" class="flex items-center p-3 text-gray-300 hover:text-kpi-accent rounded-lg">
-                            <svg class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                            </svg>
-                            Editar Dados
-                        </button>
-                        <button onclick="showView('settings'); closeMobileNav();" class="flex items-center p-3 text-gray-300 hover:text-kpi-accent rounded-lg">
-                            <svg class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                            Configurações
-                        </button>
+                </aside>
+                <main class="flex-1 flex flex-col relative">
+                    <div id="test-mode-banner" class="hidden bg-yellow-400 text-black text-center p-2 font-semibold">
+                        Modo de Teste: Nenhuma alteração será salva.
                     </div>
-                </nav>
+                    <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75 z-50 flex items-center justify-center hidden">
+                        <div class="loader"></div>
+                    </div>
+                    
+                    <header class="bg-[#4a55a2] dark:bg-gray-800/90 text-white p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <button id="sidebar-toggle" class="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2">
+                            <i data-lucide="menu"></i>
+                            <span class="hidden md:inline">Menu</span>
+                        </button>
+                        <div id="header-info" class="text-center md:text-left">
+                            <h1 class="text-xl font-bold" id="header-greeting"></h1>
+                            <p class="text-sm text-indigo-200 dark:text-gray-400" id="header-datetime"></p>
+                        </div>
+                        <div id="header-buttons" class="flex items-center gap-2 flex-wrap justify-center md:justify-end">
+                            <button id="btn-add-year" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition flex items-center gap-2"><i data-lucide="plus-circle"></i>Adicionar</button>
+                            <button id="btn-alerts" class="relative bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-semibold py-2 px-3 rounded-lg transition flex items-center gap-2" title="Notificações">
+                                <i data-lucide="bell"></i>
+                                <span id="alerts-badge" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1.5 py-0.5 hidden">0</span>
+                            </button>
+                            <!-- Overlay e popover centralizado -->
+                            <div id="alerts-overlay" class="hidden fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+                                <div id="alerts-popover" class="w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 text-gray-800 dark:text-gray-100" onclick="event.stopPropagation()">
+                                    <div class="font-bold mb-2">Notificações</div>
+                                    <div id="alerts-list" class="space-y-2 text-sm"></div>
+                                </div>
+                            </div>
+                            <button id="btn-logout" class="bg-red-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-700 transition flex items-center gap-2"><i data-lucide="log-out"></i>Sair</button>
+                        </div>
+                    </header>
+                    <div id="test-mode-banner" class="hidden bg-yellow-400 text-black text-center p-2 font-semibold">
+                        Modo de Teste: Nenhuma alteração será salva.
+                    </div>
+                    <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-75 z-50 flex items-center justify-center hidden"><div class="loader"></div></div>
+                    
+
+                    <div id="dashboard-content" class="bg-[#4a55a2] dark:bg-gray-900 flex-1 p-6 overflow-y-auto">
+                        <div id="no-data-message" class="hidden text-center text-white bg-indigo-800/50 dark:bg-gray-800/50 p-10 rounded-lg">
+                             <h2 class="text-3xl font-bold mb-4">Bem-vindo ao seu Painel!</h2>
+                             <p class="text-lg mb-6">Nenhum dado foi encontrado. Comece por adicionar as informações do seu primeiro ano.</p>
+                             <button id="btn-add-first-year" class="bg-green-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-green-700 transition text-lg flex items-center gap-2 mx-auto"><i data-lucide="plus-circle"></i>Adicionar Dados do Primeiro Ano</button>
+                        </div>
+                        <div id="kpi-grids-container" class="hidden">
+                            <div class="flex justify-between items-center mb-6">
+                                <h2 class="text-2xl font-bold text-white">VISÃO GERAL DO PAINEL</h2>
+                                <div id="year-selector-container" class="flex items-center space-x-2">
+                                    <label for="year-select" class="text-white">Escolha o ano:</label>
+                                    <select id="year-select" class="bg-white dark:bg-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"></select>
+                                </div>
+                            </div>
+                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium">Corretivas</h3><p id="kpi-corretivas" class="text-4xl font-bold mt-2">0</p></div>
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium">Preventivas</h3><p id="kpi-preventivas" class="text-4xl font-bold mt-2">0</p></div>
+                                <div class="card bg-yellow-100 dark:bg-yellow-900/50"><h3 class="text-yellow-800 dark:text-yellow-300 font-medium">Preventivas a Vencer</h3><p id="kpi-preventivas-vencer" class="text-4xl font-bold mt-2 text-yellow-900 dark:text-yellow-200">0</p></div>
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium">Preditivas</h3><p id="kpi-preditivas" class="text-4xl font-bold mt-2">0</p></div>
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium">Melhorias</h3><p id="kpi-melhorias" class="text-4xl font-bold mt-2">0</p></div>
+                            </div>
+                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium">Equipamentos Instalados</h3><div class="flex items-center justify-between mt-2"><i data-lucide="wrench" class="w-12 h-12 text-blue-500"></i><p id="kpi-equipamentos" class="text-5xl font-bold">0</p></div></div>
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium">O.S Cadastradas</h3><div class="flex items-center justify-between mt-2"><i data-lucide="clipboard-list" class="w-12 h-12 text-green-500"></i><p id="kpi-os-cadastradas" class="text-5xl font-bold">0</p></div></div>
+                                <div class="card bg-green-500 text-white"><h3 class="font-medium">Custo Total</h3><p id="kpi-custo-total" class="text-4xl font-bold mt-2">R$ 0,00</p></div>
+                            </div>
+                            <div id="charts-row-1" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium mb-4">MTTR Trimestral</h3><div class="h-64"><canvas id="mttrChart"></canvas></div><div class="mt-4 text-center"><p id="mttr-target" class="text-gray-500 dark:text-gray-400">Target: 0</p></div></div>
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium mb-4">MTBF Mensal</h3><div class="h-64"><canvas id="mtbfChart"></canvas></div><div class="mt-4 text-center"><p id="mtbf-target" class="text-gray-500 dark:text-gray-400">Target: 0</p></div></div>
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium mb-4">DISPONIBILIDADE</h3><div class="h-64 relative"><canvas id="availabilityChart"></canvas></div><div class="mt-4 text-center"><p id="disponibilidade-target" class="text-gray-500 dark:text-gray-400">Target: 0%</p></div></div>
+                            </div>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium mb-4">Custos Mensais de Manutenção</h3><div class="h-64"><canvas id="monthlyCostsChart"></canvas></div></div>
+                                <div class="card"><h3 class="text-gray-500 dark:text-gray-400 font-medium mb-4">O.S Corretivas Mensais</h3><div class="h-64"><canvas id="monthlyCorrectivesChart"></canvas></div></div>
+                            </div>
+                            <!-- Botões de Exportação -->
+                            <div id="export-buttons-container" class="mt-8 flex justify-center items-center gap-4">
+                                <button id="btn-export-pdf" class="bg-red-500 text-white font-semibold py-2 px-5 rounded-lg hover:bg-red-600 transition flex items-center gap-2"><i data-lucide="file-down"></i>Exportar para PDF</button>
+                                <button id="btn-export-xlsx" class="bg-green-500 text-white font-semibold py-2 px-5 rounded-lg hover:bg-green-600 transition flex items-center gap-2"><i data-lucide="file-spreadsheet"></i>Exportar para XLSX</button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
             </div>
-
-            <!-- Filtros do Dashboard -->
-            <div id="dashboard-filters" class="hidden bg-kpi-dark rounded-lg p-4 mb-6">
-                <div class="flex items-center space-x-4">
-                    <label class="text-white">Filtrar por:</label>
-                    <select id="filter-year" class="bg-kpi-dark text-white px-3 py-2 rounded-lg border border-gray-600">
-                        <option value="">Todos os Anos</option>
-                    </select>
-                    <select id="filter-month" class="bg-kpi-dark text-white px-3 py-2 rounded-lg border border-gray-600">
-                        <option value="">Todos os Meses</option>
-                        <option value="0">Janeiro</option>
-                        <option value="1">Fevereiro</option>
-                        <option value="2">Março</option>
-                        <option value="3">Abril</option>
-                        <option value="4">Maio</option>
-                        <option value="5">Junho</option>
-                        <option value="6">Julho</option>
-                        <option value="7">Agosto</option>
-                        <option value="8">Setembro</option>
-                        <option value="9">Outubro</option>
-                        <option value="10">Novembro</option>
-                        <option value="11">Dezembro</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Status de Carregamento -->
-            <div id="loading-indicator" class="hidden bg-kpi-dark rounded-lg p-4 mb-6">
-                <div class="flex items-center space-x-3">
-                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-kpi-accent"></div>
-                    <span class="text-white">Carregando dados...</span>
-                </div>
-            </div>
-
-            <!-- View de Edição de Dados -->
-            <div id="edit-view" class="hidden">
-                <div class="bg-kpi-dark rounded-lg p-6 mb-6">
-                    <h2 class="text-xl text-white font-bold mb-4">Editar Dados</h2>
-                    <div class="overflow-x-auto">
-                        <table id="edit-table" class="min-w-full text-white">
-                            <thead class="bg-kpi-main">
-                                <tr>
-                                    <th class="px-4 py-2">Data</th>
-                                    <th class="px-4 py-2">Equipamento</th>
-                                    <th class="px-4 py-2">Tipo</th>
-                                    <th class="px-4 py-2">Descrição</th>
-                                    <th class="px-4 py-2">Duração (h)</th>
-                                    <th class="px-4 py-2">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="edit-table-body"></tbody>
-                        </table>
-                    </div>
-                    <div class="flex justify-end mt-4 space-x-4">
-                        <button id="btn-cancel-edit" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
-                            Cancelar
-                        </button>
-                        <button id="btn-save-edit" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg hover:bg-white">
-                            Salvar Alterações
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Upload de Arquivo -->
-            <div id="upload-view" class="hidden space-y-8">
-                <h2 class="text-xl text-white font-semibold mb-4">UPLOAD DE ARQUIVO CSV</h2>
-                <div class="bg-kpi-dark rounded-lg p-6">
-                    <div class="mb-4">
-                        <label class="block text-white text-sm font-medium mb-2">
-                            Selecione um arquivo CSV (.csv)
-                        </label>
-                        <input type="file" id="excel-file-input" accept=".csv" 
-                               class="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-kpi-main file:text-kpi-accent hover:file:bg-kpi-accent hover:file:text-kpi-main cursor-pointer">
-                    </div>
-                    <button id="btn-process-file" class="bg-kpi-accent text-kpi-dark font-bold px-6 py-3 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed">
-                        Processar Arquivo
-                    </button>
-                    <div id="upload-status" class="mt-4 text-sm text-gray-400">
-                        Selecione um arquivo CSV para começar a análise.
-                    </div>
-                </div>
-            </div>
-
-            <!-- Dashboard Principal -->
-            <div id="dashboard-view" class="space-y-8">
-                <!-- KPIs Principais -->
-                <div class="mb-8">
-                    <h2 class="text-xl text-white font-semibold mb-4">VISÃO GERAL DO PAINEL</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                        <div class="bg-white rounded-lg p-4 text-gray-800">
-                            <h3 class="font-medium text-gray-500">Corretivas</h3>
-                            <p id="kpi-corretivas" class="text-4xl font-bold">0</p>
-                        </div>
-                        <div class="bg-white rounded-lg p-4 text-gray-800">
-                            <h3 class="font-medium text-gray-500">Preventivas</h3>
-                            <p id="kpi-preventivas" class="text-4xl font-bold">0</p>
-                        </div>
-                        <div class="bg-warning rounded-lg p-4 text-white">
-                            <h3 class="font-medium">Preventivas Venc.</h3>
-                            <p id="kpi-preventivas-venc" class="text-4xl font-bold">0</p>
-                        </div>
-                        <div class="bg-white rounded-lg p-4 text-gray-800">
-                            <h3 class="font-medium text-gray-500">Preditivas</h3>
-                            <p id="kpi-preditivas" class="text-4xl font-bold">0</p>
-                        </div>
-                        <div class="bg-white rounded-lg p-4 text-gray-800">
-                            <h3 class="font-medium text-gray-500">Melhorias</h3>
-                            <p id="kpi-melhorias" class="text-4xl font-bold">0</p>
-                        </div>
-                        <div class="bg-white rounded-lg p-4 text-gray-800">
-                            <h3 class="font-medium text-gray-500">Equipamentos</h3>
-                            <p id="kpi-equipamentos" class="text-4xl font-bold">0</p>
-                        </div>
-                        <div class="bg-white rounded-lg p-4 text-gray-800">
-                            <h3 class="font-medium text-gray-500">O.S Total</h3>
-                            <p id="kpi-os-total" class="text-4xl font-bold">0</p>
-                        </div>
-                        <div class="bg-success rounded-lg p-4 text-white">
-                            <h3 class="font-medium">Disponibilidade</h3>
-                            <p id="kpi-availability" class="text-4xl font-bold">0%</p>
-                        </div>
-                        <div class="bg-success rounded-lg p-4 text-white col-span-2 md:col-span-2 lg:col-span-2">
-                            <h3 class="font-medium">Custo Total</h3>
-                            <p id="kpi-custo-total" class="text-4xl font-bold">R$ 0,00</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Gráficos -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-2 relative">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-white font-medium">MTTR (Tempo Médio de Reparo)</h3>
-                        </div>
-                        <button id="btn-edit-mttr" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar MTTR">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </button>
-                        <div class="h-64"><canvas id="mttrChart"></canvas></div>
-                    </div>
-                    <div class="bg-kpi-dark rounded-lg p-4 relative">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-white font-medium">MTBF (Tempo Médio Entre Falhas)</h3>
-                        </div>
-                        <button id="btn-edit-mtbf" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar MTBF">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </button>
-                        <div class="h-64"><canvas id="mtbfChart"></canvas></div>
-                    </div>
-                    <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-2 relative">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-white font-medium">Custos Mensais de Manutenção</h3>
-                        </div>
-                        <button id="btn-edit-monthly-costs" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Custos Mensais">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </button>
-                        <div class="h-64"><canvas id="monthlyCostsChart"></canvas></div>
-                    </div>
-                    <div class="bg-kpi-dark rounded-lg p-4 relative">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-white font-medium">O.S Corretivas Mensais</h3>
-                        </div>
-                        <button id="btn-edit-monthly-correctives" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar O.S Corretivas Mensais">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </button>
-                        <div class="h-64"><canvas id="monthlyCorrectivesChart"></canvas></div>
-                    </div>
-                    <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3 relative">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-white font-medium">Ordens por Status Mensal</h3>
-                        </div>
-                        <button id="btn-edit-monthly-status" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Ordens por Status Mensal">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </button>
-                        <div class="h-64"><canvas id="monthlyStatusChart"></canvas></div>
-                    </div>
-                    <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3 relative">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-white font-medium">Ordens por Tipo de Manutenção</h3>
-                        </div>
-                        <button id="btn-edit-maintenance-type" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Ordens por Tipo de Manutenção">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </button>
-                        <div class="h-64"><canvas id="maintenanceTypeChart"></canvas></div>
-                    </div>
-                    <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3 relative">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-white font-medium">Ordens por Criticidade</h3>
-                        </div>
-                        <button id="btn-edit-criticality" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Ordens por Criticidade">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </button>
-                        <div class="h-64"><canvas id="criticalityChart"></canvas></div>
-                    </div>
-                    <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3 relative">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-white font-medium">Top 5 Equipamentos com Mais Ordens</h3>
-                        </div>
-                        <button id="btn-edit-top-equipment" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Top 5 Equipamentos">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </button>
-                        <div class="h-64"><canvas id="topEquipmentChart"></canvas></div>
-                    </div>
-                    <div class="bg-kpi-dark rounded-lg p-4 lg:col-span-3 relative">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-white font-medium">Ordens por Analista</h3>
-                        </div>
-                        <button id="btn-edit-analyst" class="absolute top-4 right-4 p-2 text-gray-400 hover:text-kpi-accent rounded-lg" title="Editar Ordens por Analista">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </button>
-                        <div class="h-64"><canvas id="analystChart"></canvas></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Análise de Equipamentos -->
-            <div id="analytics-view" class="hidden space-y-8">
-                <h2 class="text-xl text-white font-semibold mb-4">ANÁLISE POR EQUIPAMENTO</h2>
-                <div class="bg-kpi-dark rounded-lg p-6">
-                    <div id="equipment-analysis-content">
-                        <p class="text-gray-400">Carregue um arquivo CSV para ver a análise de equipamentos.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Análise Preditiva -->
-            <div id="predictive-view" class="hidden space-y-8">
-                <h2 class="text-xl text-white font-semibold mb-4">ANÁLISE PREDITIVA</h2>
-                <div class="bg-kpi-dark rounded-lg p-6">
-                    <div id="predictive-analysis-content">
-                        <p class="text-gray-400">Carregue um arquivo CSV para ver a análise preditiva.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Edição de Dados -->
-            <div id="edit-view" class="hidden space-y-8">
-                <h2 class="text-xl text-white font-semibold mb-4">EDITAR DADOS</h2>
-                <div class="bg-kpi-dark rounded-lg p-6">
-                    <div id="edit-content">
-                        <p class="text-gray-400">Funcionalidade de edição em desenvolvimento.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Configurações -->
-            <div id="settings-view" class="hidden space-y-8">
-                <h2 class="text-xl text-white font-semibold mb-4">CONFIGURAÇÕES</h2>
-                <div class="bg-kpi-dark rounded-lg p-6">
-                    <div id="settings-content">
-                        <p class="text-gray-400">Funcionalidade de configurações em desenvolvimento.</p>
-                    </div>
-                </div>
-            </div>
-        </main>
+        </div>
     </div>
-
-    <!-- Chart Edit Modal Template -->
-    <div id="chartEditModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="bg-kpi-dark p-8 rounded-lg shadow-lg w-11/12 max-w-2xl">
-            <h2 id="chartEditModalTitle" class="text-white text-xl font-bold mb-4"></h2>
-            <div id="chartEditModalContent" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" style="max-height:60vh; overflow:auto;">
-                <!-- O conteúdo será preenchido dinamicamente -->
-            </div>
-            <div class="flex justify-end space-x-4 mt-6">
-                <button onclick="closeChartEditModal()" class="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
-                    Cancelar
-                </button>
-                <button onclick="updateChartData()" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg font-semibold hover:bg-white transition-colors">
-                    Salvar
-                </button>
+    
+    <!-- ELEMENTOS DO TOUR -->
+    <div id="tour-tooltip-container" class="hidden fixed inset-0 z-[99] pointer-events-none">
+        <div id="tour-tooltip" class="absolute bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 p-4 rounded-lg shadow-xl w-80 transition-all duration-300 ease-in-out pointer-events-auto">
+            <h3 id="tour-title" class="text-lg font-bold mb-2"></h3>
+            <p id="tour-description" class="text-sm"></p>
+            <div class="flex justify-between items-center mt-4">
+                <button id="tour-skip" class="text-sm text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white">Pular Tour</button>
+                <div>
+                    <button id="tour-prev" class="bg-gray-300 dark:bg-gray-600 px-3 py-1 rounded-md text-sm mr-2 hover:bg-gray-400 dark:hover:bg-gray-500">Anterior</button>
+                    <button id="tour-next" class="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700">Próximo</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- MTBF Edit Modal -->
-    <div id="mtbfModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="bg-kpi-dark p-8 rounded-lg shadow-lg w-11/12 max-w-2xl">
-            <h2 class="text-white text-xl font-bold mb-4">Editar MTBF Mensal</h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <div>
-                    <label for="mtbfJan" class="block text-gray-300 text-sm font-medium mb-1">Janeiro (horas)</label>
-                    <input type="number" id="mtbfJan" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfFev" class="block text-gray-300 text-sm font-medium mb-1">Fevereiro (horas)</label>
-                    <input type="number" id="mtbfFev" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfMar" class="block text-gray-300 text-sm font-medium mb-1">Março (horas)</label>
-                    <input type="number" id="mtbfMar" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfAbr" class="block text-gray-300 text-sm font-medium mb-1">Abril (horas)</label>
-                    <input type="number" id="mtbfAbr" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfMai" class="block text-gray-300 text-sm font-medium mb-1">Maio (horas)</label>
-                    <input type="number" id="mtbfMai" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfJun" class="block text-gray-300 text-sm font-medium mb-1">Junho (horas)</label>
-                    <input type="number" id="mtbfJun" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfJul" class="block text-gray-300 text-sm font-medium mb-1">Julho (horas)</label>
-                    <input type="number" id="mtbfJul" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfAgo" class="block text-gray-300 text-sm font-medium mb-1">Agosto (horas)</label>
-                    <input type="number" id="mtbfAgo" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfSet" class="block text-gray-300 text-sm font-medium mb-1">Setembro (horas)</label>
-                    <input type="number" id="mtbfSet" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfOut" class="block text-gray-300 text-sm font-medium mb-1">Outubro (horas)</label>
-                    <input type="number" id="mtbfOut" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfNov" class="block text-gray-300 text-sm font-medium mb-1">Novembro (horas)</label>
-                    <input type="number" id="mtbfNov" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mtbfDez" class="block text-gray-300 text-sm font-medium mb-1">Dezembro (horas)</label>
-                    <input type="number" id="mtbfDez" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-            </div>
-            <div class="flex justify-end space-x-4 mt-6">
-                <button onclick="closeMTBFModal()" class="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
-                    Cancelar
-                </button>
-                <button onclick="updateMTBF()" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg font-semibold hover:bg-white transition-colors">
-                    Salvar
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- Modals -->
+    <div id="helpModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><h2 class="text-xl font-bold mb-4">Ajuda</h2><p>Este é um painel de visão geral dos KPIs de manutenção. Use os botões para navegar, atualizar e gerir os dados.</p><p class="mt-4 text-sm text-gray-600 dark:text-gray-400">Desenvolvido por Jonathan da Silva Oliveira, desenvolvedor do projeto Manutenção Industrial Arquivos.</p><button class="btn-close-modal mt-4 bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="helpModal">Fechar</button></div></div>
+    <div id="settingsModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><form id="settings-form"><h2 class="text-2xl font-bold mb-4">Configurações</h2><div class="space-y-4"><h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 border-b dark:border-gray-600 pb-2">Perfil do Utilizador</h3><div><label for="settings-user-name" class="block text-sm font-medium">Seu Nome</label><input type="text" id="settings-user-name" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" placeholder="Como quer ser chamado?"></div><h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 border-b dark:border-gray-600 pb-2">Metas para o ano <span id="settings-year-title" class="font-bold"></span></h3><div><label for="settings-mttr-target" class="block text-sm font-medium">Meta MTTR</label><input type="number" step="0.1" id="settings-mttr-target" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div><label for="settings-mtbf-target" class="block text-sm font-medium">Meta MTBF</label><input type="number" step="0.1" id="settings-mtbf-target" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div><label for="settings-disponibilidade-target" class="block text-sm font-medium">Meta Disponibilidade (%)</label><input type="number" step="0.1" id="settings-disponibilidade-target" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 dark:bg-gray-600 px-4 py-2 rounded-lg" data-modal-id="settingsModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar</button></div></form></div></div>
+    <div id="dbModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><h2 class="text-2xl font-bold mb-4">Base de Dados</h2><div id="db-table-container"></div><div class="flex justify-end mt-8"><button type="button" class="btn-close-modal bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="dbModal">Fechar</button></div></div></div>
+    <div id="compareYearsModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><h2 class="text-2xl font-bold mb-4">Comparar Anos</h2><div id="compare-years-selection" class="grid grid-cols-4 gap-4 mb-6"></div><div style="height: 400px;"><canvas id="comparisonChart"></canvas></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 dark:bg-gray-600 px-4 py-2 rounded-lg" data-modal-id="compareYearsModal">Fechar</button><button type="button" id="btn-generate-comparison" class="bg-purple-600 text-white px-4 py-2 rounded-lg">Gerar</button></div></div></div>
 
-    <!-- MTTR Edit Modal (adicionado) -->
-    <div id="mttrModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
-        <div class="bg-kpi-dark p-8 rounded-lg shadow-lg w-11/12 max-w-md">
-            <h2 class="text-white text-xl font-bold mb-4">Editar MTTR (Trimestres)</h2>
-            <div class="grid grid-cols-3 gap-4">
-                <div>
-                    <label for="mttrQ1" class="block text-gray-300 text-sm font-medium mb-1">Q1 (horas)</label>
-                    <input type="number" id="mttrQ1" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mttrQ2" class="block text-gray-300 text-sm font-medium mb-1">Q2 (horas)</label>
-                    <input type="number" id="mttrQ2" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-                <div>
-                    <label for="mttrQ3" class="block text-gray-300 text-sm font-medium mb-1">Q3 (horas)</label>
-                    <input type="number" id="mttrQ3" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                </div>
-            </div>
-            <div class="flex justify-end space-x-4 mt-6">
-                <button onclick="closeMTTRModal()" class="bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors">Cancelar</button>
-                <button onclick="updateMTTR()" class="bg-kpi-accent text-kpi-dark px-4 py-2 rounded-lg font-semibold hover:bg-white transition-colors">Salvar</button>
-            </div>
-        </div>
-    </div>
+    <div id="addYearModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><form id="add-year-form"><h2 class="text-2xl font-bold mb-4">Adicionar Novos Dados Anuais</h2><div class="mb-4"><label for="add-year-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ano</label><input type="number" id="add-year-input" placeholder="Ex: 2025" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-3 border-b dark:border-gray-600 pb-2">Indicadores Principais (KPIs)</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preventivas</label><input type="number" id="add-preventivas" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preventivas a Vencer</label><input type="number" id="add-preventivas-vencer" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preditivas</label><input type="number" id="add-preditivas" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Melhorias</label><input type="number" id="add-melhorias" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Equipamentos Instalados</label><input type="number" id="add-equipamentos" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">O.S Cadastradas</label><input type="number" id="add-os-cadastradas" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" value="0" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Disponibilidade (%)</label><input type="number" step="0.1" id="add-disponibilidade" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" value="90" required></div></div><h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-3 border-b dark:border-gray-600 pb-2">Dados Mensais</h3><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Custos Mensais (R$)</label><div class="grid grid-cols-6 gap-2 mt-1"><input type="number" step="0.01" placeholder="Jan" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Fev" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Mar" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Abr" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Mai" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Jun" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Jul" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Ago" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Set" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Out" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Nov" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" step="0.01" placeholder="Dez" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required></div></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">O.S Corretivas Mensais</label><div class="grid grid-cols-6 gap-2 mt-1"><input type="number" placeholder="Jan" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Fev" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Mar" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Abr" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Mai" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Jun" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Jul" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Ago" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Set" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Out" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Nov" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required><input type="number" placeholder="Dez" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600" value="0" required></div></div><h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-3 border-b dark:border-gray-600 pb-2">Dados dos Gráficos Trimestrais/Anuais</h3><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">MTTR (3 valores)</label><input type="text" id="add-chart-mttr" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" value="0, 0, 0" required><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Insira os 3 valores trimestrais, separados por vírgula.</p></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">MTBF (12 valores)</label><input type="text" id="add-chart-mtbf" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" value="0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0" required><p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Insira os 12 valores mensais, separados por vírgula.</p></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 dark:bg-gray-600 px-4 py-2 rounded-lg" data-modal-id="addYearModal">Cancelar</button><button type="submit" id="save-new-year-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg">Criar Ano</button></div></form></div></div>
+    <div id="editDataModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><form id="edit-form"><h2 class="text-2xl font-bold mb-4">Editar Dados de <span id="edit-year-title"></span></h2><h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-3 border-b dark:border-gray-600 pb-2">Indicadores Principais (KPIs)</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preventivas</label><input type="number" id="edit-preventivas" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preventivas a Vencer</label><input type="number" id="edit-preventivas-vencer" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preditivas</label><input type="number" id="edit-preditivas" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Melhorias</label><input type="number" id="edit-melhorias" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Equipamentos Instalados</label><input type="number" id="edit-equipamentos" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">O.S Cadastradas</label><input type="number" id="edit-os-cadastradas" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Disponibilidade (%)</label><input type="number" step="0.1" id="edit-disponibilidade" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div></div><h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-3 border-b dark:border-gray-600 pb-2">Dados Mensais</h3><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Custos Mensais (R$)</label><div id="edit-custos-mensais-container" class="grid grid-cols-6 gap-2 mt-1"></div></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">O.S Corretivas Mensais</label><div id="edit-corretivas-mensais-container" class="grid grid-cols-6 gap-2 mt-1"></div></div><h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-3 border-b dark:border-gray-600 pb-2">Dados dos Gráficos Trimestrais/Anuais</h3><div><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">MTTR (3 valores)</label><input type="text" id="edit-chart-mttr" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div class="mt-4"><label class="block text-sm font-medium text-gray-700 dark:text-gray-300">MTBF (12 valores)</label><input type="text" id="edit-chart-mtbf" class="form-input dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 mt-1" required></div><div class="flex justify-end space-x-3 mt-8"><button type="button" class="btn-close-modal bg-gray-300 dark:bg-gray-600 px-4 py-2 rounded-lg" data-modal-id="editDataModal">Cancelar</button><button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Salvar Alterações</button></div></form></div></div>
 
-    <script src="script.js"></script>
+    <!-- Modal de Análise de Pareto -->
+    <div id="paretoModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><h2 class="text-2xl font-bold mb-4">📊 Análise de Pareto - Causas de Falhas</h2><div class="mb-6"><p class="text-sm text-gray-600 dark:text-gray-400">Identifique os 20% das causas que resultam em 80% dos problemas</p></div><div style="height: 400px; margin-bottom: 2rem;"><canvas id="paretoChart"></canvas></div><div class="overflow-x-auto"><table class="w-full border-collapse border border-gray-300 dark:border-gray-600"><thead><tr class="bg-gray-100 dark:bg-gray-700"><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">Causa</th><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">Quantidade</th><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">% Individual</th><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">% Acumulado</th></tr></thead><tbody id="pareto-table-body"></tbody></table></div><div class="flex justify-end mt-8"><button type="button" class="btn-close-modal bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="paretoModal">Fechar</button></div></div></div>
+
+    <!-- Modal de Análise de ROI -->
+    <div id="roiModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><h2 class="text-2xl font-bold mb-4">💰 Análise de ROI - Manutenção Preditiva</h2><div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"><div class="bg-blue-100 dark:bg-blue-900 p-4 rounded-lg"><h4 class="font-semibold text-blue-800 dark:text-blue-200">Investimento</h4><p class="text-2xl font-bold text-blue-600 dark:text-blue-300" id="roi-investimento">-</p></div><div class="bg-green-100 dark:bg-green-900 p-4 rounded-lg"><h4 class="font-semibold text-green-800 dark:text-green-200">Economia Anual</h4><p class="text-2xl font-bold text-green-600 dark:text-green-300" id="roi-economia">-</p></div><div class="bg-purple-100 dark:bg-purple-900 p-4 rounded-lg"><h4 class="font-semibold text-purple-800 dark:text-purple-200">ROI</h4><p class="text-2xl font-bold text-purple-600 dark:text-purple-300" id="roi-percentual">-</p></div><div class="bg-orange-100 dark:bg-orange-900 p-4 rounded-lg"><h4 class="font-semibold text-orange-800 dark:text-orange-200">Payback</h4><p class="text-2xl font-bold text-orange-600 dark:text-orange-300" id="roi-payback">-</p></div></div><div style="height: 400px;"><canvas id="roiChart"></canvas></div><div class="flex justify-end mt-8"><button type="button" class="btn-close-modal bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="roiModal">Fechar</button></div></div></div>
+
+    <!-- Modal de Benchmarking -->
+    <div id="benchmarkModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><h2 class="text-2xl font-bold mb-4">🎯 Benchmarking da Indústria</h2><div class="mb-6"><p class="text-sm text-gray-600 dark:text-gray-400">Compare seus indicadores com padrões da indústria</p></div><div style="height: 300px; margin-bottom: 2rem;"><canvas id="benchmarkChart"></canvas></div><div class="overflow-x-auto"><table class="w-full border-collapse border border-gray-300 dark:border-gray-600"><thead><tr class="bg-gray-100 dark:bg-gray-700"><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">Métrica</th><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">Atual</th><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">Benchmark</th><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">Classe Mundial</th><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">Status</th><th class="border border-gray-300 dark:border-gray-600 px-4 py-2">Gap</th></tr></thead><tbody id="benchmark-table-body"></tbody></table></div><div class="flex justify-end mt-8"><button type="button" class="btn-close-modal bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="benchmarkModal">Fechar</button></div></div></div>
+
+    <!-- Modal de Análise de Tendências -->
+    <div id="trendsModal" class="modal-overlay hidden"><div class="modal-content dark:bg-gray-800"><h2 class="text-2xl font-bold mb-4">📈 Análise de Tendências e Projeções</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6"><div class="bg-red-100 dark:bg-red-900 p-4 rounded-lg"><h4 class="font-semibold text-red-800 dark:text-red-200">Tendência de Custos</h4><p class="text-2xl font-bold text-red-600 dark:text-red-300" id="trends-custo">-</p></div><div class="bg-yellow-100 dark:bg-yellow-900 p-4 rounded-lg"><h4 class="font-semibold text-yellow-800 dark:text-yellow-200">Tendência de Corretivas</h4><p class="text-2xl font-bold text-yellow-600 dark:text-yellow-300" id="trends-corretivas">-</p></div></div><div style="height: 400px;"><canvas id="trendsChart"></canvas></div><div class="mt-4"><p class="text-sm text-gray-600 dark:text-gray-400">* Projeção baseada em tendência linear dos últimos 12 meses</p></div><div class="flex justify-end mt-8"><button type="button" class="btn-close-modal bg-blue-500 text-white px-4 py-2 rounded" data-modal-id="trendsModal">Fechar</button></div></div></div>
+
+    
+    <script type="module" src="script.js"></script>
+
 </body>
 </html>

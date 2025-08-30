@@ -1,0 +1,462 @@
+/* Popover de lertas */
+#alerts-popover {
+    min-width: 220px;
+    max-width: 350px;
+    max-height: 350px;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px 0 rgba(0,0,0,0.18);
+}
+#alerts-badge {
+    min-width: 18px;
+    min-height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: bold;
+    line-height: 1;
+}
+/* Responsividade básica para dashboard */
+@media (max-width: 900px) {
+    #dashboard-content {
+        padding: 1rem;
+    }
+    .card {
+        padding: 1rem;
+        font-size: 0.95rem;
+    }
+}
+
+/* Ajuste do layout principal */
+#dashboard-container {
+    min-height: 100vh;
+    background-color: #F3F4F6;
+}
+
+.dark #dashboard-container {
+    background-color: #111827;
+}
+
+#sidebar {
+    background-color: #4a55a2;
+}
+
+.dark #sidebar {
+    background-color: #1F2937;
+}
+/* Sidebar em tela cheia */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(74, 85, 162, 0.95);
+    backdrop-filter: blur(10px);
+    transform: translateX(-100%);
+    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 1000;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.sidebar.active {
+    transform: translateX(0);
+}
+
+.dark .sidebar {
+    background: rgba(31, 41, 55, 0.95);
+}
+
+.sidebar-header {
+    text-align: center;
+    color: white;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    margin-bottom: 3rem;
+    font-size: 2rem;
+}
+
+#sidebar-main-actions {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2rem;
+    width: 90%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.sidebar-button-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.sidebar-button {
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-button:active {
+    transform: translateY(-2px) scale(1.02);
+}
+
+.sidebar-button.btn-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: rgba(128, 128, 128, 0.1);
+}
+
+.sidebar-button.btn-disabled:hover {
+    transform: none;
+    background: rgba(128, 128, 128, 0.1);
+}
+
+.sidebar-button-label {
+    margin-top: 0.75rem;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    line-height: 1.2;
+    min-height: 2.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    max-width: 120px;
+    word-wrap: break-word;
+}
+
+#sidebar-close {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    width: 50px;
+    height: 50px;
+    background: rgba(220, 38, 38, 0.8);
+    border: 2px solid rgba(220, 38, 38, 0.5);
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
+}
+
+#sidebar-close:hover {
+    background: rgba(220, 38, 38, 1);
+    border-color: rgba(220, 38, 38, 0.8);
+    transform: scale(1.1);
+}
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+    .sidebar-header {
+        font-size: 1.8rem;
+        margin-bottom: 2rem;
+    }
+    
+    #sidebar-main-actions {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+        width: 95%;
+        padding: 0 0.5rem;
+    }
+    
+    .sidebar-button {
+        width: 75px;
+        height: 75px;
+    }
+    
+    .sidebar-button i {
+        width: 22px !important;
+        height: 22px !important;
+    }
+    
+    .sidebar-button-label {
+        font-size: 0.7rem;
+        min-height: 2rem;
+        max-width: 85px;
+    }
+}
+
+/* Responsividade para celulares pequenos */
+@media (max-width: 480px) {
+    .sidebar-header {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    #sidebar-main-actions {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        width: 98%;
+        padding: 0 0.25rem;
+    }
+    
+    .sidebar-button {
+        width: 65px;
+        height: 65px;
+        border-radius: 15px;
+    }
+    
+    .sidebar-button i {
+        width: 18px !important;
+        height: 18px !important;
+    }
+    
+    .sidebar-button-label {
+        font-size: 0.65rem;
+        margin-top: 0.5rem;
+        min-height: 1.8rem;
+        max-width: 70px;
+    }
+    
+    #sidebar-close {
+        width: 40px;
+        height: 40px;
+        top: 1rem;
+        right: 1rem;
+    }
+}
+/* Estilo para alertas do dashboard */
+#dashboard-alerts {
+    background: #fffbe6;
+    border-left: 6px solid #facc15;
+    color: #92400e;
+    font-weight: 500;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 8px 0 rgba(0,0,0,0.04);
+}
+@media (prefers-color-scheme: dark) {
+    #dashboard-alerts {
+        background: #3b2f14;
+        color: #fde68a;
+        border-left: 6px solid #facc15;
+    }
+}
+/* Sidebar azul no tema claro */
+.sidebar {
+    background: linear-gradient(135deg, #3b4483 0%, #4a55a2 100%);
+    color: #fff;
+}
+.dark .sidebar {
+    background: #181c2a;
+    color: #fff;
+}
+
+/* Menu de Database */
+#database-menu {
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    transition: all 0.2s ease-in-out;
+}
+
+.dark #database-menu {
+    border-color: rgba(255,255,255,0.1);
+}
+
+#database-menu button {
+    transition: background-color 0.2s;
+    border-radius: 0.375rem;
+    width: 100%;
+    white-space: nowrap;
+}
+
+/* Remover faixa do botão do menu lateral */
+#sidebar-toggle {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+@media (max-width: 768px) {
+    #database-menu {
+        position: fixed;
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%);
+        margin: 0;
+    }
+}
+body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
+.card { background-color: #ffffff; border-radius: 0.75rem; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); color: #1f2937; transition: transform 0.2s, box-shadow 0.2s; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal-content { background-color: white; padding: 2rem; border-radius: 0.5rem; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
+
+/* Modal de Configurações: azul no tema claro */
+
+/* Todos os modais laterais com fundo azul no tema claro */
+#settingsModal .modal-content,
+#helpModal .modal-content,
+#dbModal .modal-content,
+#compareYearsModal .modal-content,
+#editDataModal .modal-content,
+#addYearModal .modal-content {
+    background-color: #3b4483;
+    color: #fff;
+}
+
+/* Corrige cabeçalho da tabela no modal de base de dados */
+#dbModal .db-table th {
+    background-color: #4a55a2;
+    color: #fff;
+}
+#settingsModal .form-input,
+#helpModal .form-input,
+#dbModal .form-input,
+#compareYearsModal .form-input,
+#editDataModal .form-input,
+#addYearModal .form-input,
+#settingsModal .form-input:focus,
+#helpModal .form-input:focus,
+#dbModal .form-input:focus,
+#compareYearsModal .form-input:focus,
+#editDataModal .form-input:focus,
+#addYearModal .form-input:focus {
+    background-color: #4a55a2;
+    color: #fff;
+    border: 1px solid #fff;
+}
+#settingsModal label,
+#helpModal label,
+#dbModal label,
+#compareYearsModal label,
+#editDataModal label,
+#addYearModal label {
+    color: #c7d0f7;
+}
+#settingsModal button,
+#helpModal button,
+#dbModal button,
+#compareYearsModal button,
+#editDataModal button,
+#addYearModal button {
+    color: #fff;
+}
+#settingsModal .bg-blue-600,
+#helpModal .bg-blue-600,
+#dbModal .bg-blue-600,
+#compareYearsModal .bg-blue-600,
+#editDataModal .bg-blue-600,
+#addYearModal .bg-blue-600 {
+    background-color: #1e40af !important;
+}
+#settingsModal .bg-gray-300,
+#helpModal .bg-gray-300,
+#dbModal .bg-gray-300,
+#compareYearsModal .bg-gray-300,
+#editDataModal .bg-gray-300,
+#addYearModal .bg-gray-300 {
+    background-color: #64748b !important;
+}
+.loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.form-input { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; }
+.form-input-small { padding: 0.5rem; text-align: center; }
+.btn-disabled { cursor: not-allowed; opacity: 0.5; }
+.btn-disabled:hover { background-color: #9ca3af !important; }
+#login-screen { background: linear-gradient(135deg, #3b4483 0%, #4a55a2 100%); }
+
+/* Responsividade para o relógio da tela de login */
+#login-clock {
+    font-size: 8rem; /* text-8xl equivalente */
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+@media (max-width: 768px) {
+    #login-clock {
+        font-size: 4rem; /* Reduz para mobile */
+    }
+}
+
+@media (max-width: 480px) {
+    #login-clock {
+        font-size: 3rem; /* Ainda menor para celulares pequenos */
+    }
+}
+
+@media (max-width: 360px) {
+    #login-clock {
+        font-size: 2.5rem; /* Para telas muito pequenas */
+    }
+}
+.db-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
+.db-table th, .db-table td { border: 1px solid #e5e7eb; padding: 0.75rem; text-align: left; }
+.db-table th { background-color: #f9fafb; font-weight: 600; }
+.copy-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 4px; border-radius: 4px; transition: background-color 0.2s; }
+.copy-btn:hover { background-color: #e5e7eb; }
+
+/* Estilos para o Tour Interativo */
+.tour-highlight {
+    position: relative;
+    z-index: 100;
+    transition: all 0.3s ease-in-out;
+    border-radius: 0.5rem;
+    outline: 4px solid #facc15; /* Amarelo Tailwind */
+    box-shadow: 0 0 20px rgba(250, 204, 21, 0.8);
+}
+
+/* Estilos para análises avançadas */
+.analysis-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.analysis-metric {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+}
+
+.trend-positive {
+    color: #10b981;
+    font-weight: bold;
+}
+
+.trend-negative {
+    color: #ef4444;
+    font-weight: bold;
+}
+
+.benchmark-status {
+    font-size: 1.2rem;
+    text-align: center;
+}

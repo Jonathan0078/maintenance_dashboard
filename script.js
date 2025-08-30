@@ -1,117 +1,564 @@
-// Variáveis globais
-let charts = {};
-let dashboardData = null;
-let currentExcelData = null;
-let filteredData = null;
-const accentColor = '#00f6ff';
-const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-const mesesCompletos = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-// Overrides feitos via modais (persistidos em localStorage / Firebase)
-let dashboardOverrides = {};
+// Função global para copia texto
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Copiado para a área de transferência!');
+    }, (err) => {
+        alert('Erro ao copiar: ', err);
+    });
+}
+// Tornar a função acessível globalmente para o onclick
+window.copyToClipboard = copyToClipboard;
 
-function loadOverrides() {
-    // Tenta carregar do localStorage primeiro
-    try {
-        const raw = localStorage.getItem('dashboardOverrides');
-        if (raw) {
-            dashboardOverrides = JSON.parse(raw) || {};
-            console.log('Overrides carregados do localStorage');
-            return;
-        }
-    } catch (e) {
-        console.warn('Erro ao carregar overrides do localStorage:', e);
+// Controle do menu móvel
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarClose = document.getElementById('sidebar-close');
+    const overlay = document.getElementById('sidebar-overlay');
+
+    if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', function() {
+            sidebar.classList.add('active');
+            if (overlay) overlay.classList.add('active');
+        });
     }
 
-    // Se houver Firebase configurado, tentar carregar overrides salvos
-    try {
-        if (window.firebase) {
-            const { db, doc, getDoc } = window.firebase;
-            (async () => {
-                try {
-                    const docRef = doc(db, 'maintenance', 'overrides');
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        if (data && data.overrides) {
-                            dashboardOverrides = data.overrides;
-                            localStorage.setItem('dashboardOverrides', JSON.stringify(dashboardOverrides));
-                            console.log('Overrides carregados do Firebase');
-                        }
+    if (sidebarClose) {
+        sidebarClose.addEventListener('click', function() {
+            sidebar.classList.remove('active');
+            if (overlay) overlay.classList.remove('active');
+        });
+    }
+
+    // Fechar o menu quando clicar em um botão dentro dele (exceto botões desabilitados)
+    const sidebarButtons = sidebar.querySelectorAll('.sidebar-button:not(.btn-disabled)');
+    sidebarButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            if (overlay) overlay.classList.remove('active');
+        });
+    });
+
+    // Fechar menu ao pressionar ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && sidebar.classList.contains('active')) {
+            sidebar.classList.remove('active');
+            if (overlay) overlay.classList.remove('active');
+        }
+    });
+
+    // Adicionar event listeners para menu do database
+    setupDatabaseMenu();
+});
+
+// Controle do menu de database
+function setupDatabaseMenu() {
+    // Função removida - sem necessidade de menu de database
+}
+
+// Funções de importação XLSX removidas
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, onSnapshot, collection, getDocs, setDoc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+// --- DADOS DE TESTE (MOCK) ---
+let mockData = {
+    "2025": {
+        kpis: {
+            preventivas: 150, preventivasVencer: 15, preditivas: 45, melhorias: 22,
+            equipamentos: 310, osCadastradas: 512, disponibilidade: 96.5,
+            custo_mensal: [5100, 4800, 5500, 5200, 6000, 5800, 6200, 5900, 6500, 6300, 7000, 6800],
+            corretivas_mensal: [5, 4, 6, 5, 7, 6, 8, 7, 9, 8, 10, 9]
+        },
+        charts: {
+            mttr: [4.5, 4.2, 4.8],
+            mtbf: [720, 750, 700, 730, 680, 690, 650, 670, 620, 640, 600, 610]
+        },
+        targets: { mttr: 5, mtbf: 600, disponibilidade: 95 }
+    }
+};
+
+const firebaseConfig = {
+    apiKey: "AIzaSyDShfzoFgVXEgNzWkbwi99xCpcMdrP9Wis",
+    authDomain: "dashboard-manutencao-31cc1.firebaseapp.com",
+    projectId: "dashboard-manutencao-31cc1",
+    storageBucket: "dashboard-manutencao-31cc1.firebasestorage.app",
+    messagingSenderId: "2579677725",
+    appId: "1:2579677725:web:0a25ff2e34df14debabcf4"
+};
+
+let app, auth, db;
+let isTestMode = false;
+let dbUnsubscribe = null;
+let clockInterval = null;
+let headerInterval = null;
+let currentYearData = {};
+let currentUserData = {};
+let isDataLoaded = false;
+const charts = {};
+
+const loginScreen = document.getElementById('login-screen');
+const dashboardContainer = document.getElementById('dashboard-container');
+const loadingOverlay = document.getElementById('loading-overlay');
+const authError = document.getElementById('auth-error');
+
+const showModal = (modalId) => document.getElementById(modalId)?.classList.remove('hidden');
+const closeModal = (modalId) => document.getElementById(modalId)?.classList.add('hidden');
+
+function enterTestMode() {
+    isTestMode = true;
+    loginScreen.classList.add('hidden');
+    dashboardContainer.classList.remove('hidden');
+    document.getElementById('test-mode-banner').classList.remove('hidden');
+    
+    currentUserData = { name: 'Usuário Teste' };
+    startHeaderUpdates();
+    setupDashboardEventListeners();
+    initializeDashboard().then(() => {
+        if (!localStorage.getItem('tourCompleted')) {
+            startTour();
+        }
+    });
+}
+
+function initializeFirebase() {
+     app = initializeApp(firebaseConfig);
+     auth = getAuth(app);
+     db = getFirestore(app);
+     
+     onAuthStateChanged(auth, user => {
+        if (isTestMode) return;
+        if (user) {
+            loginScreen.classList.add('hidden');
+            dashboardContainer.classList.remove('hidden');
+            if (clockInterval) clearInterval(clockInterval);
+            loadUserData(user).then(() => {
+                setupDashboardEventListeners();
+                initializeDashboard().then(() => {
+                    if (!localStorage.getItem('tourCompleted')) {
+                        startTour();
                     }
-                } catch (err) {
-                    console.warn('Erro ao carregar overrides do Firebase:', err);
-                }
-            })();
+                });
+            });
+        } else {
+            dashboardContainer.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            if (dbUnsubscribe) dbUnsubscribe();
+            if (headerInterval) clearInterval(headerInterval);
+            startClockAndGreeting();
+            setButtonsState(false);
         }
-    } catch (e) {
-        console.warn('Firebase não disponível para carregar overrides:', e);
+    });
+}
+
+async function loadUserData(user) {
+    if (isTestMode) return;
+    const userRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userRef);
+    currentUserData = userSnap.exists() ? userSnap.data() : { name: user.email };
+    startHeaderUpdates();
+}
+
+function startHeaderUpdates() {
+    const updateHeader = () => {
+        const now = new Date();
+        const hour = now.getHours();
+        let greeting = '';
+        if (hour >= 5 && hour < 12) greeting = 'Bom Dia';
+        else if (hour >= 12 && hour < 18) greeting = 'Boa Tarde';
+        else greeting = 'Boa Noite';
+        
+        document.getElementById('header-greeting').textContent = `${greeting}, ${currentUserData.name || ''}!`;
+        document.getElementById('header-datetime').textContent = now.toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
+    };
+    
+    if (headerInterval) clearInterval(headerInterval);
+    updateHeader();
+    headerInterval = setInterval(updateHeader, 10000);
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    authError.textContent = '';
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+        authError.textContent = 'E-mail ou senha incorretos.';
     }
 }
 
-function saveOverrides() {
-    try {
-        localStorage.setItem('dashboardOverrides', JSON.stringify(dashboardOverrides || {}));
-    } catch (e) {
-        console.warn('Erro ao salvar overrides no localStorage:', e);
-    }
-
-    // Tentar salvar no Firebase (se configurado)
-    try {
-        if (window.firebase) {
-            const { db, doc, setDoc } = window.firebase;
-            setDoc(doc(db, 'maintenance', 'overrides'), {
-                overrides: dashboardOverrides,
-                savedAt: new Date().toISOString()
-            }).then(() => console.log('Overrides salvos no Firebase')).catch(err => console.warn('Erro ao salvar overrides no Firebase:', err));
+async function initializeDashboard() {
+    loadingOverlay.classList.remove('hidden');
+    const yearSelector = document.getElementById('year-select');
+    
+    if (isTestMode) {
+        const years = Object.keys(mockData).sort((a, b) => b - a);
+        if (years.length === 0) {
+             showNoDataMessage(true);
+             setButtonsState(false);
+        } else {
+            showNoDataMessage(false);
+            yearSelector.innerHTML = years.map(year => `<option value="${year}">${year}</option>`).join('');
+            listenToYearData(years[0]);
         }
-    } catch (e) {
-        console.warn('Firebase não disponível para salvar overrides:', e);
+        loadingOverlay.classList.add('hidden');
+        return;
+    }
+
+    try {
+        const querySnapshot = await getDocs(collection(db, "maintenance_data"));
+        const years = querySnapshot.docs.map(doc => doc.id);
+
+        if (years.length === 0) {
+            showNoDataMessage(true); setButtonsState(false);
+        } else {
+            showNoDataMessage(false);
+            years.sort((a, b) => b - a);
+            yearSelector.innerHTML = years.map(year => `<option value="${year}">${year}</option>`).join('');
+            listenToYearData(years[0]);
+        }
+    } catch (error) {
+        console.error("Erro ao buscar dados iniciais:", error);
+        showNoDataMessage(true);
+    } finally {
+        loadingOverlay.classList.add('hidden');
     }
 }
 
-function applyOverridesToDashboardData(dashData) {
-    if (!dashData || !dashboardOverrides) return dashData;
+function listenToYearData(year) {
+    if (!year) return;
+    loadingOverlay.classList.remove('hidden');
+    setButtonsState(false);
 
-    // Substituir arrays/objetos conforme overrides
-    if (dashboardOverrides.monthly_costs && Array.isArray(dashboardOverrides.monthly_costs)) {
-        dashData.monthly_costs = dashboardOverrides.monthly_costs.slice();
+    if(isTestMode) {
+        currentYearData = mockData[year];
+        updateDashboardUI(currentYearData);
+        setButtonsState(true);
+        loadingOverlay.classList.add('hidden');
+        return;
     }
-    if (dashboardOverrides.monthly_correctives && Array.isArray(dashboardOverrides.monthly_correctives)) {
-        dashData.monthly_correctives = dashboardOverrides.monthly_correctives.slice();
-    }
-    if (dashboardOverrides.monthly_status && typeof dashboardOverrides.monthly_status === 'object') {
-        dashData.monthly_status = dashboardOverrides.monthly_status;
-    }
-    if (dashboardOverrides.mttr && Array.isArray(dashboardOverrides.mttr)) {
-        dashData.mttr = dashboardOverrides.mttr.slice();
-    }
-    if (dashboardOverrides.mtbf && Array.isArray(dashboardOverrides.mtbf)) {
-        dashData.mtbf = dashboardOverrides.mtbf.slice();
-    }
-    if (dashboardOverrides.additionalData) {
-        dashData.additionalData = dashData.additionalData || {};
-        if (dashboardOverrides.additionalData.maintenanceTypeCounts) dashData.additionalData.maintenanceTypeCounts = dashboardOverrides.additionalData.maintenanceTypeCounts;
-        if (dashboardOverrides.additionalData.criticalityCounts) dashData.additionalData.criticalityCounts = dashboardOverrides.additionalData.criticalityCounts;
-        if (dashboardOverrides.additionalData.analystCounts) dashData.additionalData.analystCounts = dashboardOverrides.additionalData.analystCounts;
-        if (dashboardOverrides.additionalData.topEquipment) dashData.additionalData.topEquipment = dashboardOverrides.additionalData.topEquipment;
-    }
-
-    return dashData;
+    
+    if (dbUnsubscribe) dbUnsubscribe();
+    const docRef = doc(db, "maintenance_data", year);
+    dbUnsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+            currentYearData = docSnap.data();
+            updateDashboardUI(currentYearData);
+            setButtonsState(true);
+        } else {
+            setButtonsState(false);
+        }
+        loadingOverlay.classList.add('hidden');
+    }, (error) => {
+        console.error("Erro ao escutar dados:", error);
+        loadingOverlay.classList.add('hidden');
+    });
 }
 
-// Configurações globais do Chart.js para impressão
-Chart.register(ChartDataLabels);
-Chart.defaults.font.size = 12;
-Chart.defaults.color = '#000000';
-Chart.defaults.plugins.title.font.size = 16;
-Chart.defaults.plugins.title.color = '#000000';
+function updateDashboardUI(data) {
+    if (!data || !data.kpis) return;
 
-// Filtros globais
-let selectedYear = '';
-let selectedMonth = '';
+    const kpis = data.kpis;
+    const custoMensal = kpis.custo_mensal || Array(12).fill(0);
+    const corretivasMensal = kpis.corretivas_mensal || Array(12).fill(0);
+    const totalCost = custoMensal.reduce((a, b) => a + b, 0);
+    const totalCorrectives = corretivasMensal.reduce((a, b) => a + b, 0);
 
-async function saveChartsAsPDF() {
-    showLoading(true);
+    document.getElementById('kpi-corretivas').textContent = totalCorrectives;
+    document.getElementById('kpi-custo-total').textContent = `R$ ${totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    document.getElementById('kpi-preventivas').textContent = kpis.preventivas;
+    document.getElementById('kpi-preventivas-vencer').textContent = kpis.preventivasVencer;
+    document.getElementById('kpi-preditivas').textContent = kpis.preditivas;
+    document.getElementById('kpi-melhorias').textContent = kpis.melhorias;
+    document.getElementById('kpi-equipamentos').textContent = kpis.equipamentos;
+    document.getElementById('kpi-os-cadastradas').textContent = kpis.osCadastradas;
+
+    const targets = data.targets || {};
+    document.getElementById('mttr-target').textContent = `Target: ${targets.mttr || 0}`;
+    document.getElementById('mtbf-target').textContent = `Target: ${targets.mtbf || 0}`;
+    document.getElementById('disponibilidade-target').textContent = `Target: ${targets.disponibilidade || 0}%`;
+
+
+    // ALERTAS VISUAIS (popover)
+    const alerts = [];
+    if (targets.disponibilidade && kpis.disponibilidade < targets.disponibilidade) {
+        alerts.push(`Disponibilidade abaixo da meta (${kpis.disponibilidade}% < ${targets.disponibilidade}%)`);
+    }
+    if (targets.mttr && data.charts && data.charts.mttr && data.charts.mttr.length) {
+        const mttrMedia = data.charts.mttr.reduce((a,b)=>a+b,0)/data.charts.mttr.length;
+        if (mttrMedia > targets.mttr) alerts.push(`MTTR acima da meta (${mttrMedia.toFixed(2)} > ${targets.mttr})`);
+    }
+    if (targets.mtbf && data.charts && data.charts.mtbf && data.charts.mtbf.length) {
+        const mtbfMedia = data.charts.mtbf.reduce((a,b)=>a+b,0)/data.charts.mtbf.length;
+        if (mtbfMedia < targets.mtbf) alerts.push(`MTBF abaixo da meta (${mtbfMedia.toFixed(0)} < ${targets.mtbf})`);
+    }
+    const mediaCorretivas = corretivasMensal.reduce((a,b)=>a+b,0)/corretivasMensal.length;
+    if (mediaCorretivas > 10) alerts.push(`Corretivas mensais acima do esperado (${mediaCorretivas.toFixed(1)} por mês)`);
+    if (kpis.preventivasVencer && kpis.preventivasVencer > 0) alerts.push(`Existem ${kpis.preventivasVencer} preventivas a vencer!`);
+
+    // Atualiza badge e popover
+    const badge = document.getElementById('alerts-badge');
+    const overlay = document.getElementById('alerts-overlay');
+    const popover = document.getElementById('alerts-popover');
+    const list = document.getElementById('alerts-list');
+    if (badge && overlay && popover && list) {
+        if (alerts.length) {
+            badge.textContent = alerts.length;
+            badge.classList.remove('hidden');
+            list.innerHTML = alerts.map(msg => `<div>⚠️ ${msg}</div>`).join('');
+        } else {
+            badge.classList.add('hidden');
+            list.innerHTML = '<div class="text-gray-400 dark:text-gray-500">Nenhuma notificação.</div>';
+        }
+        overlay.classList.add('hidden'); // sempre inicia fechado
+    }
+
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    updateChart('mttrChart', ['Trim. 1', 'Trim. 2', 'Trim. 3'], data.charts.mttr, 'MTTR', 'bar', {}, targets.mttr, 'lower');
+    updateChart('mtbfChart', months, data.charts.mtbf, 'MTBF', 'line', {}, targets.mtbf, 'higher');
+    const availabilityValue = kpis.disponibilidade || 0;
+    updateChart('availabilityChart', ['Disponibilidade', 'Restante'], [availabilityValue, 100 - availabilityValue], 'Disponibilidade', 'doughnut', {}, targets.disponibilidade, 'higher');
+    updateChart('monthlyCostsChart', months, custoMensal, 'Custo (R$)', 'line');
+    updateChart('monthlyCorrectivesChart', months, corretivasMensal, 'Nº de O.S Corretivas', 'bar');
+
+    lucide.createIcons();
+}
+
+const setButtonsState = (enabled) => {
+     const btnEdit = document.getElementById('btn-edit');
+     const btnSettings = document.getElementById('btn-settings');
+     isDataLoaded = enabled;
+     [btnEdit, btnSettings].forEach(btn => {
+         if (btn) {
+             btn.disabled = !enabled;
+             enabled ? btn.classList.remove('btn-disabled') : btn.classList.add('btn-disabled');
+         }
+     });
+};
+
+const showNoDataMessage = (show) => {
+    document.getElementById('kpi-grids-container').style.display = show ? 'none' : 'block';
+    document.getElementById('no-data-message').style.display = show ? 'block' : 'none';
+};
+
+function startClockAndGreeting() {
+    const update = () => {
+        const now = new Date();
+        const hour = now.getHours();
+        const greetingEl = document.getElementById('login-greeting');
+        const clockEl = document.getElementById('login-clock');
+        if (greetingEl) {
+            if (hour >= 5 && hour < 12) greetingEl.textContent = 'Bom Dia';
+            else if (hour >= 12 && hour < 18) greetingEl.textContent = 'Boa Tarde';
+            else greetingEl.textContent = 'Boa Noite';
+        }
+        if (clockEl) clockEl.textContent = now.toLocaleTimeString('pt-BR');
+    };
+    update();
+    if (clockInterval) clearInterval(clockInterval);
+    clockInterval = setInterval(update, 1000);
+}
+
+let listenersAttached = false;
+function setupDashboardEventListeners() {
+
+    // Notificações popover
+    const btnAlerts = document.getElementById('btn-alerts');
+    const overlay = document.getElementById('alerts-overlay');
+    if (btnAlerts && overlay) {
+        btnAlerts.addEventListener('click', (e) => {
+            e.stopPropagation();
+            overlay.classList.remove('hidden');
+        });
+        document.addEventListener('click', () => {
+            overlay.classList.add('hidden');
+        });
+        overlay.addEventListener('click', () => {
+            overlay.classList.add('hidden');
+        });
+    }
+    if (listenersAttached) return;
+    
+    document.getElementById('btn-logout').addEventListener('click', () => {
+        if(isTestMode) { window.location.reload(); } else { signOut(auth); }
+    });
+    document.getElementById('btn-settings').addEventListener('click', () => isDataLoaded && showSettingsModal());
+    document.getElementById('btn-db').addEventListener('click', showDatabaseModal);
+    document.getElementById('btn-refresh').addEventListener('click', () => { if(isDataLoaded) listenToYearData(document.getElementById('year-select').value); });
+    document.getElementById('btn-help').addEventListener('click', () => showModal('helpModal'));
+    document.getElementById('btn-start-tour').addEventListener('click', startTour);
+    document.getElementById('btn-edit').addEventListener('click', () => isDataLoaded && showEditModal());
+    document.getElementById('btn-add-year').addEventListener('click', () => showModal('addYearModal'));
+    document.getElementById('btn-add-first-year').addEventListener('click', () => showModal('addYearModal'));
+    document.getElementById('year-select').addEventListener('change', (e) => listenToYearData(e.target.value));
+    document.getElementById('btn-compare-years').addEventListener('click', showCompareModal);
+    document.getElementById('btn-generate-comparison').addEventListener('click', generateComparisonChart);
+    document.getElementById('btn-export-pdf').addEventListener('click', exportToPDF);
+    document.getElementById('btn-export-xlsx').addEventListener('click', exportToXLSX);
+    document.getElementById('btn-pareto-analysis').addEventListener('click', showParetoAnalysis);
+    document.getElementById('btn-roi-analysis').addEventListener('click', showROIAnalysis);
+    document.getElementById('btn-benchmarking').addEventListener('click', showBenchmarking);
+    document.getElementById('btn-trends').addEventListener('click', showTrendsAnalysis);
+    document.getElementById('btn-export').addEventListener('click', () => showExportOptions());
+    document.getElementById('btn-import').addEventListener('click', () => showImportDialog());
+    document.getElementById('btn-notifications').addEventListener('click', () => showNotifications());
+    document.getElementById('btn-reports').addEventListener('click', () => showReportsModal());
+    document.getElementById('btn-analytics').addEventListener('click', () => showAdvancedAnalytics());
+    
+    document.querySelectorAll('.btn-close-modal').forEach(btn => { btn.addEventListener('click', () => closeModal(btn.dataset.modalId)); });
+    
+    document.getElementById('add-year-form').addEventListener('submit', (e) => saveYearData(e, true));
+    document.getElementById('edit-form').addEventListener('submit', (e) => saveYearData(e, false));
+    document.getElementById('settings-form').addEventListener('submit', saveSettings);
+    
+    listenersAttached = true;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('btn-show-test-info').addEventListener('click', () => {
+        document.getElementById('test-credentials').classList.toggle('hidden');
+        lucide.createIcons();
+    });
+    document.getElementById('btn-test-mode').addEventListener('click', enterTestMode);
+    setupDarkMode();
+    initializeFirebase();
+});
+
+// Sidebar toggle logic
+const sidebar = document.getElementById('sidebar');
+const sidebarToggle = document.getElementById('sidebar-toggle');
+
+if (sidebar && sidebarToggle) {
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('-translate-x-full');
+    });
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', (event) => {
+        if (window.innerWidth < 768 && !sidebar.contains(event.target) && !sidebarToggle.contains(event.target)) {
+            sidebar.classList.add('-translate-x-full');
+        }
+    });
+}
+
+// --- LÓGICA DO MODO ESCURO ---
+function setupDarkMode() {
+    const toggleBtn = document.getElementById('btn-toggle-dark-mode');
+    if (!toggleBtn) return;
+
+    const sunIcon = `<i data-lucide="sun" class="w-6 h-6"></i>`;
+    const moonIcon = `<i data-lucide="moon" class="w-6 h-6"></i>`;
+
+    const applyTheme = (isDark) => {
+        document.documentElement.classList.toggle('dark', isDark);
+        toggleBtn.innerHTML = isDark ? sunIcon : moonIcon;
+        lucide.createIcons();
+        
+        if (isDataLoaded) {
+            updateDashboardUI(currentYearData);
+        }
+    };
+
+    toggleBtn.addEventListener('click', () => {
+        const isDark = !document.documentElement.classList.contains('dark');
+        localStorage.setItem('darkMode', isDark);
+        applyTheme(isDark);
+    });
+
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const savedMode = localStorage.getItem('darkMode');
+    
+    applyTheme(savedMode === 'true' || (savedMode === null && prefersDark));
+}
+
+
+// --- LÓGICA DO TOUR ---
+
+const tourSteps = [
+    { element: '#header-info', title: 'Boas-vindas!', description: 'Aqui você vê uma saudação, seu nome, a data e a hora atual.' , position: 'bottom' },
+    { element: '#header-buttons', title: 'Ações Principais', description: 'Use estes botões para Adicionar um novo ano ou Sair da sua conta.' , position: 'bottom-left' },
+    { element: '#sidebar-main-actions', title: 'Menu de Navegação', description: 'Aqui você pode alterar Configurações, Editar o ano atual, Comparar dados, ver a Base de Dados ou Atualizar as informações.' , position: 'right' },
+    { element: '#year-selector-container', title: 'Seletor de Ano', description: 'Escolha o ano que deseja visualizar no painel.' , position: 'left' },
+    { element: '#kpi-grids-container .card:first-child', title: 'Cartões de KPI', description: 'Estes cartões mostram os principais indicadores de manutenção (KPIs) de forma rápida e visual.' , position: 'bottom' },
+    { element: '#charts-row-1', title: 'Gráficos de Performance', description: 'Acompanhe visualmente o MTTR, MTBF e a Disponibilidade para analisar a eficiência da sua equipe.' , position: 'top' },
+    { element: '#export-buttons-container', title: 'Exportar Relatórios', description: 'Clique aqui para salvar a visualização atual como PDF ou para exportar os dados brutos para uma planilha Excel (XLSX).' , position: 'top' },
+];
+
+let currentStepIndex = 0;
+let highlightedElement = null;
+
+function showStep(index) {
+    if (highlightedElement) highlightedElement.classList.remove('tour-highlight');
+    if (index >= tourSteps.length) { endTour(); return; }
+
+    const step = tourSteps[index];
+    const targetElement = document.querySelector(step.element);
+    
+    if (!targetElement || targetElement.offsetParent === null) { showStep(index + 1); return; }
+    
+    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    highlightedElement = targetElement;
+    highlightedElement.classList.add('tour-highlight');
+    
+    const tooltip = document.getElementById('tour-tooltip');
+    document.getElementById('tour-title').textContent = step.title;
+    document.getElementById('tour-description').textContent = step.description;
+
+    const targetRect = targetElement.getBoundingClientRect();
+    
+    let top, left;
+    switch(step.position) {
+        case 'bottom': top = targetRect.bottom + 15; left = targetRect.left + (targetRect.width / 2) - (tooltip.offsetWidth / 2); break;
+        case 'bottom-left': top = targetRect.bottom + 15; left = targetRect.right - tooltip.offsetWidth; break;
+        case 'top': top = targetRect.top - tooltip.offsetHeight - 15; left = targetRect.left + (targetRect.width / 2) - (tooltip.offsetWidth / 2); break;
+        case 'left': top = targetRect.top + (targetRect.height / 2) - (tooltip.offsetHeight / 2); left = targetRect.left - tooltip.offsetWidth - 15; break;
+        case 'right': default: top = targetRect.top + (targetRect.height / 2) - (tooltip.offsetHeight / 2); left = targetRect.right + 15;
+    }
+    
+    if (left < 10) left = 10;
+    if ((left + tooltip.offsetWidth) > window.innerWidth) left = window.innerWidth - tooltip.offsetWidth - 10;
+    if (top < 10) top = 10;
+    if ((top + tooltip.offsetHeight) > window.innerHeight) top = window.innerHeight - tooltip.offsetHeight - 10;
+
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
+
+    document.getElementById('tour-prev').style.display = index === 0 ? 'none' : 'inline-block';
+    document.getElementById('tour-next').textContent = index === tourSteps.length - 1 ? 'Finalizar' : 'Próximo';
+}
+
+function startTour() {
+    currentStepIndex = 0;
+    document.getElementById('tour-tooltip-container').classList.remove('hidden');
+    showStep(currentStepIndex);
+}
+
+function endTour() {
+    if (highlightedElement) {
+        highlightedElement.classList.remove('tour-highlight');
+        highlightedElement = null;
+    }
+    document.getElementById('tour-tooltip-container').classList.add('hidden');
+    localStorage.setItem('tourCompleted', 'true');
+}
+
+document.getElementById('tour-next').addEventListener('click', () => { currentStepIndex++; showStep(currentStepIndex); });
+document.getElementById('tour-prev').addEventListener('click', () => { if (currentStepIndex > 0) { currentStepIndex--; showStep(currentStepIndex); } });
+document.getElementById('tour-skip').addEventListener('click', endTour);
+
+// --- FUNÇÕES DE EXPORTAÇÃO ---
+
+async function exportToPDF() {
+    const btn = document.getElementById('btn-export-pdf');
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`;
+    btn.disabled = true;
+
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({
         orientation: 'landscape',
@@ -119,2405 +566,711 @@ async function saveChartsAsPDF() {
         format: 'a4'
     });
 
-    const chartInfo = [
-        { id: 'mttrChart', title: 'Tempo Médio de Reparo (MTTR)' },
-        { id: 'mtbfChart', title: 'Tempo Médio Entre Falhas (MTBF)' },
-        { id: 'monthlyCostsChart', title: 'Custos Mensais de Manutenção' },
-        { id: 'monthlyCorrectivesChart', title: 'Manutenções Corretivas Mensais' },
-        { id: 'monthlyStatusChart', title: 'Status das Ordens de Manutenção' },
-        { id: 'maintenanceTypeChart', title: 'Distribuição por Tipo de Manutenção' },
-        { id: 'criticalityChart', title: 'Distribuição por Criticidade' },
-        { id: 'topEquipmentChart', title: 'Top 5 Equipamentos com Mais Ordens' },
-        { id: 'analystChart', title: 'Ordens por Analista' }
-    ];
-
-    const filterText = (selectedYear || selectedMonth) 
-        ? `Filtro: ${selectedYear ? 'Ano ' + selectedYear : ''} ${selectedMonth !== '' ? 'Mês ' + mesesCompletos[selectedMonth] : ''}`
-        : 'Filtro: Todos os dados';
-
-    for (let i = 0; i < chartInfo.length; i++) {
-        const { id, title } = chartInfo[i];
-        const chartElement = document.getElementById(id);
-        
-        if (chartElement) {
-            const chartContainer = chartElement.closest('.bg-kpi-dark');
-            if (i > 0) pdf.addPage();
-
-            try {
-                const canvas = await html2canvas(chartContainer, {
-                    scale: 3,
-                    backgroundColor: '#262f4e',
-                    useCORS: true,
-                    onclone: (doc) => {
-                        const clonedCanvas = doc.getElementById(id);
-                        clonedCanvas.style.backgroundColor = 'transparent';
-                    }
-                });
-
-                const imgData = canvas.toDataURL('image/png');
-                const pageWidth = pdf.internal.pageSize.getWidth();
-                const pageHeight = pdf.internal.pageSize.getHeight();
-                const margin = 10;
-                
-                const contentWidth = pageWidth - (2 * margin);
-                const contentHeight = pageHeight - (2 * margin) - 20; // Extra space for text
-
-                const imgWidth = canvas.width;
-                const imgHeight = canvas.height;
-                const ratio = Math.min(contentWidth / imgWidth, contentHeight / imgHeight);
-                
-                const finalWidth = imgWidth * ratio;
-                const finalHeight = imgHeight * ratio;
-
-                const x = (pageWidth - finalWidth) / 2;
-                let y = margin;
-
-                // Add filter text
-                pdf.setFontSize(10);
-                pdf.setTextColor(100, 100, 100);
-                pdf.text(filterText, margin, y);
-                y += 10;
-
-                // Add chart image
-                pdf.addImage(imgData, 'PNG', x, y, finalWidth, finalHeight);
-                y += finalHeight + 5;
-
-                // Add extra info
-                pdf.setFontSize(12);
-                pdf.setTextColor(0, 0, 0);
-                let extraInfo = '';
-                if (dashboardData) {
-                    switch (id) {
-                        case 'monthlyCostsChart':
-                            const totalCost = dashboardData.monthly_costs.reduce((a, b) => a + b, 0);
-                            const avgCost = totalCost / 12;
-                            extraInfo = `Custo Total: R$ ${totalCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})} | Média Mensal: R$ ${avgCost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-                            break;
-                        case 'monthlyCorrectivesChart':
-                            const totalCorrectives = dashboardData.monthly_correctives.reduce((a, b) => a + b, 0);
-                            const avgCorrectives = totalCorrectives / 12;
-                            extraInfo = `Total de Corretivas: ${totalCorrectives} | Média Mensal: ${avgCorrectives.toFixed(1)}`;
-                            break;
-                        case 'mttrChart':
-                            const avgMttr = dashboardData.mttr.reduce((a, b) => a + b, 0) / dashboardData.mttr.length;
-                            extraInfo = `Média Geral MTTR: ${avgMttr.toFixed(1)} horas`;
-                            break;
-                        case 'mtbfChart':
-                             const avgMtbf = dashboardData.mtbf.reduce((a, b) => a + b, 0) / dashboardData.mtbf.length;
-                            extraInfo = `Média Geral MTBF: ${avgMtbf.toFixed(1)} horas`;
-                            break;
-                        case 'maintenanceTypeChart':
-                            const totalMaint = Object.values(dashboardData.additionalData.maintenanceTypeCounts).reduce((a, b) => a + b, 0);
-                            extraInfo = `Total de Ordens: ${totalMaint}`;
-                            break;
-                        case 'criticalityChart':
-                            const totalCrit = Object.values(dashboardData.additionalData.criticalityCounts).reduce((a, b) => a + b, 0);
-                            extraInfo = `Total de Ordens: ${totalCrit}`;
-                            break;
-                        case 'analystChart':
-                            const totalAnalyst = Object.values(dashboardData.additionalData.analystCounts).reduce((a, b) => a + b, 0);
-                            extraInfo = `Total de Ordens: ${totalAnalyst}`;
-                            break;
-                    }
-                }
-                
-                if(extraInfo) {
-                    pdf.text(extraInfo, margin, y);
-                }
-
-
-            } catch (error) {
-                console.error(`Erro ao gerar o canvas para o gráfico ${id}:`, error);
-            }
-        }
-    }
-
-    pdf.save('dashboard-relatorio-de-manutencao.pdf');
-    showLoading(false);
-}
-
-// Mapeamento de tipos de manutenção
-const TIPO_MAPPING = {
-    7: 'Corretiva',
-    10: 'Preventiva', 
-    22: 'Preditiva',
-    12: 'Melhoria',
-    21: 'Inspeção',
-    11: 'Modificação',
-    9: 'Calibração',
-    5: 'Limpeza',
-    8: 'Outros'
-};
-
-// Inicialização
-document.addEventListener('DOMContentLoaded', function() {
-    // Carregar overrides salvos antes de inicializar o dashboard
-    loadOverrides();
-    initializeDashboard();
-    setupEventListeners();
-    updateDateTime();
-    setInterval(updateDateTime, 1000);
-});
-
-function setupEventListeners() {
-    document.getElementById('btn-refresh').addEventListener('click', loadDashboardData);
-    document.getElementById('btn-save-pdf').addEventListener('click', saveChartsAsPDF);
-    document.getElementById('btn-dashboard').addEventListener('click', () => showView('dashboard'));
-    document.getElementById('btn-upload').addEventListener('click', () => showView('upload'));
-    document.getElementById('btn-analytics').addEventListener('click', () => showView('analytics'));
-    document.getElementById('btn-predictive').addEventListener('click', () => showView('predictive'));
-    document.getElementById('btn-edit').addEventListener('click', () => showView('edit'));
-    document.getElementById('btn-settings').addEventListener('click', () => showView('settings'));
-    document.getElementById('btn-export').addEventListener('click', exportReport);
-    document.getElementById('btn-process-file').addEventListener('click', processExcelFile);
-    document.getElementById('excel-file-input').addEventListener('change', handleFileSelect);
-
-    // Adicionar event listeners para os filtros
-    document.getElementById('filter-year').addEventListener('change', handleFilterChange);
-    document.getElementById('filter-month').addEventListener('change', handleFilterChange);
-
-    // Adicionar event listener para o botão Editar MTTR
-    const btnEditMttr = document.getElementById('btn-edit-mttr');
-    if (btnEditMttr) btnEditMttr.addEventListener('click', openMTTRModal);
-
-    // Adicionar event listener para o botão Editar MTBF
-    const btnEditMtbf = document.getElementById('btn-edit-mtbf');
-    if (btnEditMtbf) btnEditMtbf.addEventListener('click', openMTBFModal);
-
-    // Adicionar event listeners para os novos botões de edição de gráficos
-    document.getElementById('btn-edit-monthly-costs')?.addEventListener('click', () => openChartEditModal('monthlyCostsChart', 'Custos Mensais de Manutenção'));
-    document.getElementById('btn-edit-monthly-correctives')?.addEventListener('click', () => openChartEditModal('monthlyCorrectivesChart', 'O.S Corretivas Mensais'));
-    document.getElementById('btn-edit-monthly-status')?.addEventListener('click', () => openChartEditModal('monthlyStatusChart', 'Ordens por Status Mensal'));
-    document.getElementById('btn-edit-maintenance-type')?.addEventListener('click', () => openChartEditModal('maintenanceTypeChart', 'Ordens por Tipo de Manutenção'));
-    document.getElementById('btn-edit-criticality')?.addEventListener('click', () => openChartEditModal('criticalityChart', 'Ordens por Criticidade'));
-    document.getElementById('btn-edit-top-equipment')?.addEventListener('click', () => openChartEditModal('topEquipmentChart', 'Top 5 Equipamentos com Mais Ordens'));
-    document.getElementById('btn-edit-analyst')?.addEventListener('click', () => openChartEditModal('analystChart', 'Ordens por Analista'));
-    
-    // Mobile menu button
-    const btnMobile = document.getElementById('btn-mobile-menu');
-    if (btnMobile) btnMobile.addEventListener('click', openMobileNav);
-
-    // Fechar menu móvel quando clicar fora
-    const mobileNavBackdrop = document.querySelector('#mobileNav > div');
-    if (mobileNavBackdrop) {
-        mobileNavBackdrop.addEventListener('click', closeMobileNav);
-    }
-
-
-function openMobileNav() {
-    const nav = document.getElementById('mobileNav');
-    if (nav) nav.classList.remove('hidden');
-    const panel = document.getElementById('mobileNavPanel');
-    if (panel) {
-        // esperar próximo frame para aplicar animação
-        requestAnimationFrame(() => panel.classList.remove('-translate-x-full'));
-    }
-}
-
-function closeMobileNav() {
-    const nav = document.getElementById('mobileNav');
-    const panel = document.getElementById('mobileNavPanel');
-    if (panel) panel.classList.add('-translate-x-full');
-    // esconder backdrop depois da transição
-    setTimeout(() => { if (nav) nav.classList.add('hidden'); }, 300);
-}
-    // Preencher anos disponíveis
-    populateYearFilter();
-    
-    // Event listeners para botões que podem não existir ainda
-    const btnSaveEdit = document.getElementById('btn-save-edit');
-    if (btnSaveEdit) btnSaveEdit.addEventListener('click', saveEditedData);
-    
-    const btnCancelEdit = document.getElementById('btn-cancel-edit');
-    if (btnCancelEdit) btnCancelEdit.addEventListener('click', () => showView('dashboard'));
-    
-    const btnSaveSettings = document.getElementById('btn-save-settings');
-    if (btnSaveSettings) btnSaveSettings.addEventListener('click', saveSettings);
-    
-    const btnCancelSettings = document.getElementById('btn-cancel-settings');
-    if (btnCancelSettings) btnCancelSettings.addEventListener('click', () => showView('dashboard'));
-
-    // Adicionar event listener para o botão de salvar do modal de edição de gráficos
-    const btnSaveChartEdit = document.getElementById('btn-save-chart-edit');
-    if (btnSaveChartEdit) btnSaveChartEdit.addEventListener('click', updateChartData);
-}
-
-function showView(viewName) {
-    // Esconder todas as views
-    const views = ['dashboard', 'upload', 'analytics', 'predictive', 'edit', 'settings'];
-    views.forEach(view => {
-        const element = document.getElementById(view + '-view');
-        if (element) element.classList.add('hidden');
-    });
-
-    // Mostrar/esconder filtros do dashboard
-    const dashboardFilters = document.getElementById('dashboard-filters');
-    if (dashboardFilters) {
-        if (viewName === 'dashboard' || viewName === 'analytics') {
-            dashboardFilters.classList.remove('hidden');
-        } else {
-            dashboardFilters.classList.add('hidden');
-        }
-    }
-
-    // Mostrar view selecionada
-    const targetView = document.getElementById(viewName + '-view');
-    if (targetView) targetView.classList.remove('hidden');
-
-    // Atualizar botões ativos
-    document.querySelectorAll('aside button').forEach(btn => {
-        btn.classList.remove('text-kpi-accent', 'bg-gray-700/50');
-        btn.classList.add('text-gray-400');
-    });
-
-    const activeBtn = document.getElementById('btn-' + viewName);
-    if (activeBtn) {
-        activeBtn.classList.remove('text-gray-400');
-        activeBtn.classList.add('text-kpi-accent', 'bg-gray-700/50');
-    }
-
-    // Carregar dados específicos da view
-    if (viewName === 'analytics' && currentExcelData) {
-        loadEquipmentAnalysis();
-    } else if (viewName === 'predictive' && currentExcelData) {
-        loadPredictiveAnalysis();
-    } else if (viewName === 'edit') {
-        loadEditForm();
-    } else if (viewName === 'settings') {
-        loadSettingsForm();
-    }
-}
-
-function updateDateTime() {
-    const now = new Date();
-    const dateTimeString = now.toLocaleString('pt-BR', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    const element = document.getElementById('date-time-display');
-    if (element) element.textContent = dateTimeString;
-}
-
-function showLoading(show) {
-    const indicator = document.getElementById('loading-indicator');
-    if (indicator) {
-        if (show) {
-            indicator.classList.remove('hidden');
-        } else {
-            indicator.classList.add('hidden');
-        }
-    }
-}
-
-async function initializeDashboard() {
-    // Tentar carregar dados salvos do Firebase
-    await loadFromFirebase();
-    
-    // Se não há dados, mostrar view de upload
-    if (!currentExcelData) {
-        showView('upload');
-    } else {
-        showView('dashboard');
-        await loadDashboardData();
-    }
-    
-    // Adicionar botões de edição aos gráficos
-    addChartEditButtons();
-}
-
-function addChartEditButtons() {
-    // Esta função não é mais necessária para criar botões, pois eles são adicionados diretamente no HTML.
-    // Os event listeners para os botões de edição dos gráficos serão configurados em setupEventListeners().
-}
-
-function openChartEditModal(chartId, title) {
-    const modal = document.getElementById('chartEditModal');
-    const modalTitle = document.getElementById('chartEditModalTitle');
-    const modalContent = document.getElementById('chartEditModalContent');
-    
-    modalTitle.textContent = `Editar ${title}`;
-    modalContent.innerHTML = '';
-    
-    // Configurar campos baseados no tipo de gráfico
-    switch(chartId) {
-        case 'monthlyCostsChart':
-            mesesCompletos.forEach((mes, index) => {
-                const valor = charts[chartId]?.data?.datasets[0]?.data[index] || 0;
-                addModalField(mes, `cost${index}`, valor, 'R$');
-            });
-            break;
-        case 'monthlyCorrectivesChart':
-            mesesCompletos.forEach((mes, index) => {
-                const valor = charts[chartId]?.data?.datasets[0]?.data[index] || 0;
-                addModalField(mes, `value${index}`, valor, '');
-            });
-            break;
-        case 'monthlyStatusChart':
-            // Para monthlyStatusChart criamos campos para cada dataset e mês
-            const statusDatasets = charts[chartId]?.data?.datasets || [];
-            statusDatasets.forEach((ds, dsIndex) => {
-                const dsLabel = ds.label || `Dataset ${dsIndex+1}`;
-                const container = document.createElement('div');
-                container.classList.add('col-span-2');
-                const title = document.createElement('h4');
-                title.className = 'text-white font-semibold mb-2';
-                title.textContent = dsLabel;
-                container.appendChild(title);
-
-                const grid = document.createElement('div');
-                grid.className = 'grid grid-cols-3 gap-2 mb-4';
-
-                mesesCompletos.forEach((mes, index) => {
-                    const value = ds.data[index] || 0;
-                    const inputId = `status_${dsIndex}_${index}`;
-                    const fieldWrapper = document.createElement('div');
-                    fieldWrapper.innerHTML = `
-                        <label for="${inputId}" class="block text-gray-300 text-sm font-medium mb-1">${mes}</label>
-                        <input type="number" id="${inputId}" value="${value}" class="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-                    `;
-                    grid.appendChild(fieldWrapper);
-                });
-
-                container.appendChild(grid);
-                modalContent.appendChild(container);
-            });
-            break;
-        case 'maintenanceTypeChart':
-        case 'criticalityChart':
-            const labels = charts[chartId]?.data?.labels || [];
-            labels.forEach((label, index) => {
-                const valor = charts[chartId]?.data?.datasets[0]?.data[index] || 0;
-                addModalField(label, `value${index}`, valor, '');
-            });
-            break;
-        case 'topEquipmentChart':
-        case 'analystChart':
-            const items = charts[chartId]?.data?.labels || [];
-            items.forEach((item, index) => {
-                const valor = charts[chartId]?.data?.datasets[0]?.data[index] || 0;
-                addModalField(item, `value${index}`, valor, '');
-            });
-            break;
-    }
-    
-    // Armazenar o ID do gráfico atual para uso na função de atualização
-    modal.dataset.currentChart = chartId;
-    modal.classList.remove('hidden');
-}
-
-function addModalField(label, id, value, prefix = '') {
-    const modalContent = document.getElementById('chartEditModalContent');
-    const div = document.createElement('div');
-    div.innerHTML = `
-        <label for="${id}" class="block text-gray-300 text-sm font-medium mb-1">${label}</label>
-        <div class="relative">
-            ${prefix ? `<span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">${prefix}</span>` : ''}
-            <input type="number" id="${id}" value="${value}"
-                class="w-full p-2 ${prefix ? 'pl-8' : ''} rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-kpi-accent">
-        </div>
-    `;
-    modalContent.appendChild(div);
-}
-
-function closeChartEditModal() {
-    const modal = document.getElementById('chartEditModal');
-    modal.classList.add('hidden');
-}
-
-function updateChartData() {
-    const modal = document.getElementById('chartEditModal');
-    const chartId = modal.dataset.currentChart;
-    const chart = charts[chartId];
-    
-    if (!chart || !dashboardData) return;
-    
-    const inputs = modal.querySelectorAll('input[type="number"]');
-    const newData = Array.from(inputs).map(input => Number(input.value));
-    
-    switch (chartId) {
-        case 'monthlyCostsChart':
-            dashboardData.monthly_costs = newData;
-            dashboardOverrides.monthly_costs = newData.slice();
-            saveOverrides();
-            break;
-        case 'monthlyCorrectivesChart':
-            dashboardData.monthly_correctives = newData;
-            dashboardOverrides.monthly_correctives = newData.slice();
-            saveOverrides();
-            break;
-        case 'maintenanceTypeChart':
-            const maintenanceTypeLabels = charts[chartId]?.data?.labels || [];
-            const newMaintenanceTypeCounts = {};
-            maintenanceTypeLabels.forEach((label, i) => {
-                newMaintenanceTypeCounts[label] = newData[i];
-            });
-            dashboardData.additionalData.maintenanceTypeCounts = newMaintenanceTypeCounts;
-            dashboardOverrides.additionalData = dashboardOverrides.additionalData || {};
-            dashboardOverrides.additionalData.maintenanceTypeCounts = newMaintenanceTypeCounts;
-            saveOverrides();
-            break;
-        case 'criticalityChart':
-            const criticalityLabels = charts[chartId]?.data?.labels || [];
-            const newCriticalityCounts = {};
-            criticalityLabels.forEach((label, i) => {
-                newCriticalityCounts[label] = newData[i];
-            });
-            dashboardData.additionalData.criticalityCounts = newCriticalityCounts;
-            dashboardOverrides.additionalData = dashboardOverrides.additionalData || {};
-            dashboardOverrides.additionalData.criticalityCounts = newCriticalityCounts;
-            saveOverrides();
-            break;
-        case 'analystChart':
-            const analystLabels = charts[chartId]?.data?.labels || [];
-            const newAnalystCounts = {};
-            analystLabels.forEach((label, i) => {
-                newAnalystCounts[label] = newData[i];
-            });
-            dashboardData.additionalData.analystCounts = newAnalystCounts;
-            dashboardOverrides.additionalData = dashboardOverrides.additionalData || {};
-            dashboardOverrides.additionalData.analystCounts = newAnalystCounts;
-            saveOverrides();
-            break;
-        case 'topEquipmentChart':
-            // Assuming the order of inputs matches the order of topEquipment array
-            const newTopEquipment = dashboardData.additionalData.topEquipment.map((item, i) => ({ ...item, count: newData[i] }));
-            dashboardData.additionalData.topEquipment = newTopEquipment;
-            dashboardOverrides.additionalData = dashboardOverrides.additionalData || {};
-            dashboardOverrides.additionalData.topEquipment = newTopEquipment;
-            saveOverrides();
-            break;
-        case 'monthlyStatusChart':
-            // This chart has multiple datasets and requires a more complex update.
-            // For now, it's skipped. The modal only allows editing of the first dataset.
-            // Implement multiple datasets: inputs should be ordered by dataset then month
-            // We'll detect dataset count from charts[chartId].data.datasets
-            const datasets = charts[chartId].data.datasets || [];
-            const updatedStatus = {};
-            datasets.forEach((ds, dsIndex) => {
-                const label = ds.label || `Dataset ${dsIndex+1}`;
-                updatedStatus[label] = [];
-                for (let i = 0; i < meses.length; i++) {
-                    const inputEl = document.getElementById(`status_${dsIndex}_${i}`);
-                    const val = inputEl ? Number(inputEl.value) : 0;
-                    updatedStatus[label].push(isNaN(val) ? 0 : val);
-                }
-            });
-            dashboardData.monthly_status = updatedStatus;
-            dashboardOverrides.monthly_status = updatedStatus;
-            saveOverrides();
-            break;
-        default:
-            console.warn(`Unknown chartId: ${chartId}. Data not updated in dashboardData.`);
-            break;
-    }
-    
-    // Re-render the dashboard with updated data
-    // Apply overrides and recreate charts without reprocessing raw CSV
-    dashboardData = applyOverridesToDashboardData(dashboardData);
-    createAllCharts(dashboardData);
-    
-    // Fechar modal
-    closeChartEditModal();
-}
-
-function handleFileSelect(event) {
-    const file = event.target.files[0];
-    const statusEl = document.getElementById('upload-status');
-    const processBtn = document.getElementById('btn-process-file');
-    
-    if (file) {
-        statusEl.innerHTML = `<span class="text-blue-400">Arquivo selecionado: ${file.name}</span>`;
-        processBtn.disabled = false;
-    } else {
-        statusEl.innerHTML = 'Selecione um arquivo Excel (.xlsx, .xls) ou CSV (.csv) para começar a análise.';
-        processBtn.disabled = true;
-    }
-}
-
-async function processExcelFile() {
-    const fileInput = document.getElementById("excel-file-input");
-    const file = fileInput.files[0];
-    const statusEl = document.getElementById("upload-status");
-    
-    if (!file) {
-        statusEl.innerHTML = '<span class="text-red-500">Por favor, selecione um arquivo.</span>';
-        return;
-    }
-
-    statusEl.innerHTML = '<span class="text-yellow-400">Processando arquivo...</span>';
-    showLoading(true);
+    const chartCards = Array.from(document.querySelectorAll('#kpi-grids-container .card')).filter(card => card.querySelector('canvas'));
 
     try {
-        let jsonData = [];
-        const fileExtension = file.name.split('.').pop().toLowerCase();
-        console.log('Extensão do arquivo:', fileExtension);
-
-        if (fileExtension === 'csv') {
-            // Processa CSV diretamente
-            jsonData = await new Promise((resolve, reject) => {
-                Papa.parse(file, {
-                    header: true,
-                    delimiter: ",",
-                    dynamicTyping: true,
-                    skipEmptyLines: true,
-                    complete: function(results) {
-                        if (results.errors.length) {
-                            console.warn('Avisos no CSV:', results.errors);
-                        }
-                        resolve(results.data);
-                    },
-                    error: function(err) {
-                        reject(err);
-                    }
-                });
-            });
-        } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-            console.log('Arquivo Excel detectado, iniciando conversão...');
-            // Converte XLSX/XLS para CSV e então processa
-            const reader = new FileReader();
+        for (let i = 0; i < chartCards.length; i++) {
+            const card = chartCards[i];
             
-            jsonData = await new Promise((resolve, reject) => {
-                reader.onload = async function(e) {
-                    try {
-                        console.log('Lendo arquivo Excel...');
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        
-                        console.log('Excel lido, obtendo primeira planilha...');
-                        // Pega primeira planilha
-                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                        
-                        console.log('Convertendo para CSV...');
-                        // Converte para CSV
-                        const csvContent = XLSX.utils.sheet_to_csv(firstSheet);
-                        console.log('Conversão para CSV concluída:', csvContent.substring(0, 100) + '...');
-                        
-                        // Processa o CSV para JSON
-                        Papa.parse(csvContent, {
-                            header: true,
-                            delimiter: ",",
-                            dynamicTyping: true,
-                            skipEmptyLines: true,
-                            complete: function(results) {
-                                if (results.errors.length) {
-                                    console.warn('Avisos na conversão:', results.errors);
-                                }
-                                resolve(results.data);
-                            },
-                            error: function(err) {
-                                reject(err);
-                            }
-                        });
-                    } catch (error) {
-                        reject(error);
-                    }
-                };
-                reader.onerror = () => reject(reader.error);
-                reader.readAsArrayBuffer(file);
+            const buttons = card.querySelectorAll('button');
+            buttons.forEach(b => b.style.display = 'none');
+            
+            const canvas = await html2canvas(card, {
+                scale: 3,
+                useCORS: true,
+                backgroundColor: '#ffffff'
             });
+            
+            buttons.forEach(b => b.style.display = '');
+
+            const imgData = canvas.toDataURL('image/png');
+            
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const ratio = canvasWidth / canvasHeight;
+            
+            const margin = 15;
+            let imgWidth = pdfWidth - (margin * 2);
+            let imgHeight = imgWidth / ratio;
+
+            if (imgHeight > pdfHeight - (margin * 2)) {
+                imgHeight = pdfHeight - (margin * 2);
+                imgWidth = imgHeight * ratio;
+            }
+            
+            const x = (pdfWidth - imgWidth) / 2;
+            const y = (pdfHeight - imgHeight) / 2;
+
+            if (i > 0) {
+                pdf.addPage();
+            }
+            
+            pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+        }
+        
+        if (chartCards.length > 0) {
+            const year = document.getElementById('year-select').value;
+            pdf.save(`dashboard-manutencao-graficos-${year}.pdf`);
         } else {
-            throw new Error("Formato de arquivo não suportado. Use .csv, .xlsx ou .xls");
-        }
-        
-        if (jsonData.length === 0) {
-            throw new Error("Arquivo está vazio.");
+            alert("Nenhum gráfico encontrado para exportar.");
         }
 
-        console.log('Dados processados:', jsonData.length, 'registros');
-        // Salvar dados processados
-        currentExcelData = jsonData;
-        
-        // Salvar no Firebase
-        await saveToFirebase(jsonData, file.name);
-
-        // Atualizar filtro de anos
-        populateYearFilter();
-        
-        statusEl.innerHTML = `<span class="text-green-500">✓ Arquivo processado com sucesso! ${jsonData.length} registros carregados.</span>`;
-        
-        // Processar dados e atualizar dashboard
-        await loadDashboardData();
-        
-        // Voltar para o dashboard
-        showView('dashboard');
-        
     } catch (error) {
-        console.error('Erro ao processar arquivo:', error);
-        statusEl.innerHTML = `<span class="text-red-500">✗ Erro: ${error.message}</span>`;
+        console.error("Erro ao gerar PDF:", error);
+        alert("Ocorreu um erro ao gerar o PDF dos gráficos.");
     } finally {
-        showLoading(false);
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        lucide.createIcons();
     }
 }
 
-async function saveToFirebase(data, filename) {
+function exportToXLSX() {
+    const btn = document.getElementById('btn-export-xlsx');
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`;
+    btn.disabled = true;
+
     try {
-        if (!window.firebase) {
-            console.log('Firebase não configurado, salvando apenas localmente');
-            localStorage.setItem('maintenanceData', JSON.stringify(data));
-            localStorage.setItem('maintenanceFilename', filename);
-            return;
-        }
+        const year = document.getElementById('year-select').value;
+        const kpis = currentYearData.kpis;
+        const charts = currentYearData.charts;
+        const targets = currentYearData.targets;
+        const totalCorrectives = (kpis.corretivas_mensal || []).reduce((a, b) => a + b, 0);
+        const totalCost = (kpis.custo_mensal || []).reduce((a, b) => a + b, 0);
 
-        const { db, doc, setDoc } = window.firebase;
-        
-        // Salvar dados principais
-        await setDoc(doc(db, 'maintenance', 'currentData'), {
-            data: data,
-            filename: filename,
-            uploadDate: new Date().toISOString(),
-            recordCount: data.length
-        });
-        
-        console.log('Dados salvos no Firebase com sucesso');
-    } catch (error) {
-        console.error('Erro ao salvar no Firebase:', error);
-        // Fallback para localStorage
-        localStorage.setItem('maintenanceData', JSON.stringify(data));
-        localStorage.setItem('maintenanceFilename', filename);
-    }
-}
-
-async function loadFromFirebase() {
-    try {
-        if (!window.firebase) {
-            console.log('Firebase não configurado, carregando do localStorage');
-            const data = localStorage.getItem('maintenanceData');
-            if (data) {
-                currentExcelData = JSON.parse(data);
-                return;
-            }
-            return;
-        }
-
-        const { db, doc, getDoc } = window.firebase;
-        
-        const docRef = doc(db, 'maintenance', 'currentData');
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-            const savedData = docSnap.data();
-            currentExcelData = savedData.data;
-            console.log('Dados carregados do Firebase:', savedData.recordCount, 'registros');
-        }
-    } catch (error) {
-        console.error('Erro ao carregar do Firebase:', error);
-        // Fallback para localStorage
-        const data = localStorage.getItem('maintenanceData');
-        if (data) {
-            currentExcelData = JSON.parse(data);
-        }
-    }
-}
-
-function populateYearFilter() {
-    if (!currentExcelData || currentExcelData.length === 0) return;
-
-    const yearSelect = document.getElementById('filter-year');
-    if (!yearSelect) return;
-
-    // Limpar opções existentes, mantendo a opção "Todos os Anos"
-    yearSelect.innerHTML = '<option value="">Todos os Anos</option>';
-
-    // Coletar anos únicos dos dados
-    const years = new Set();
-    currentExcelData.forEach(row => {
-        if (row['Data Manutenção']) {
-            const dataStr = row['Data Manutenção'];
-            if (dataStr.includes('/')) {
-                const [_, __, ano] = dataStr.split('/');
-                if (ano) years.add(ano);
-            }
-        }
-    });
-
-    // Adicionar anos como opções
-    Array.from(years).sort().forEach(year => {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
-        yearSelect.appendChild(option);
-    });
-}
-
-function handleFilterChange() {
-    selectedYear = document.getElementById('filter-year').value;
-    selectedMonth = document.getElementById('filter-month').value;
-
-    // Filtrar dados
-    filteredData = filterData();
-
-    // Recarregar a view ativa
-    if (!document.getElementById('dashboard-view').classList.contains('hidden')) {
-        loadDashboardData();
-    } else if (!document.getElementById('analytics-view').classList.contains('hidden')) {
-        loadEquipmentAnalysis();
-    }
-}
-
-function filterData() {
-    if (!currentExcelData) return [];
-    
-    return currentExcelData.filter(row => {
-        if (!row['Data Manutenção']) return false;
-
-        const dataStr = row['Data Manutenção'];
-        if (!dataStr.includes('/')) return false;
-
-        const [dia, mes, ano] = dataStr.split('/');
-        
-        // Aplicar filtro de ano
-        if (selectedYear && ano !== selectedYear) return false;
-        
-        // Aplicar filtro de mês
-        if (selectedMonth !== '') {
-            const monthIndex = parseInt(mes) - 1;
-            if (monthIndex !== parseInt(selectedMonth)) return false;
-        }
-        
-        return true;
-    });
-}
-
-async function loadDashboardData() {
-    if (!currentExcelData) {
-        console.log('Nenhum dado Excel disponível');
-        return;
-    }
-
-    showLoading(true);
-    try {
-        // Usar dados filtrados se houver filtros ativos, caso contrário usar todos os dados
-        const dataToUse = (selectedYear || selectedMonth !== '') ? filterData() : currentExcelData;
-        
-        const kpis = calculateKPIs(dataToUse);
-        const monthlyData = calculateMonthlyData(dataToUse);
-        const mttrMtbf = calculateMTTRMTBF(dataToUse);
-        const additionalData = calculateAdditionalChartsData(dataToUse);
-        
-        dashboardData = {
-            kpis: kpis,
-            monthly_costs: monthlyData.costs,
-            monthly_correctives: monthlyData.correctives,
-            monthly_status: monthlyData.statusByMonth,
-            mttr: mttrMtbf.mttr,
-            mtbf: mttrMtbf.mtbf,
-            additionalData: additionalData
-        };
-        
-    // Aplicar overrides persistidos (se houver)
-    dashboardData = applyOverridesToDashboardData(dashboardData);
-        
-        updateKPIs(dashboardData.kpis);
-        createAllCharts(dashboardData);
-        
-    } catch (error) {
-        console.error('Erro:', error);
-        alert('Erro ao processar dados do dashboard: ' + error.message);
-    } finally {
-        showLoading(false);
-    }
-}
-
-function calculateKPIs(data) {
-    if (!data || data.length === 0) {
-        return {
-            corretivas: 0, preventivas: 0, preventivasVenc: 0,
-            preditivas: 0, melhorias: 0, equipamentos: 0,
-            osTotal: 0, availability: 0, custoTotal: 0
-        };
-    }
-    
-    // Contagem por tipo de manutenção
-    const tipoCounts = {};
-    data.forEach(row => {
-        const tipo = row['Tipo de Manutenção'];
-        if (tipo !== undefined && tipo !== null) {
-            tipoCounts[tipo] = (tipoCounts[tipo] || 0) + 1;
-        }
-    });
-    
-    const kpis = {
-        corretivas: tipoCounts[7] || 0,
-        preventivas: tipoCounts[10] || 0,
-        preditivas: tipoCounts[22] || 0,
-        melhorias: tipoCounts[12] || 0,
-        equipamentos: new Set(data.map(row => row['Equipamento']).filter(eq => eq)).size,
-        osTotal: data.length,
-        preventivasVenc: 0
-    };
-    
-    // Calcular preventivas vencidas
-    try {
-        const hoje = new Date();
-        const preventivas = data.filter(row => row['Tipo de Manutenção'] === 10);
-        const vencidas = preventivas.filter(row => {
-            const dataStr = row['Data Manutenção'];
-            if (!dataStr) return false;
-            
-            // Tentar diferentes formatos de data
-            let dataManutencao;
-            if (dataStr.includes('/')) {
-                const parts = dataStr.split('/');
-                if (parts.length === 3) {
-                    // Assumir formato DD/MM/YYYY
-                    dataManutencao = new Date(parts[2], parts[1] - 1, parts[0]);
-                }
-            } else {
-                dataManutencao = new Date(dataStr);
-            }
-            
-            return dataManutencao && !isNaN(dataManutencao.getTime()) && dataManutencao < hoje;
-        });
-        kpis.preventivasVenc = vencidas.length;
-    } catch (e) {
-        console.log('Erro ao calcular preventivas vencidas:', e);
-    }
-    
-    // Calcular custo total
-    try {
-        let custoTotal = 0;
-        data.forEach(row => {
-            const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
-            const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
-            custoTotal += valorMaterial + valorMaoObra;
-        });
-        kpis.custoTotal = custoTotal;
-    } catch (e) {
-        console.log('Erro ao calcular custo total:', e);
-        kpis.custoTotal = 0;
-    }
-    
-    // Calcular disponibilidade (simulada)
-    kpis.availability = Math.max(85, Math.min(99, 95 - (kpis.corretivas * 0.5)));
-    
-    return kpis;
-}
-
-function calculateMonthlyData(data) {
-    const costs = Array(12).fill(0);
-    const correctives = Array(12).fill(0);
-    const statusByMonth = {
-        'Não Iniciada': Array(12).fill(0),
-        'Requisitada': Array(12).fill(0),
-        'Iniciada': Array(12).fill(0),
-        'Liberada': Array(12).fill(0),
-        'Suspensa': Array(12).fill(0)
-    };
-    
-    if (!data || data.length === 0) {
-        return { costs, correctives, statusByMonth };
-    }
-    
-    try {
-        data.forEach(row => {
-            const dataStr = row['Data Manutenção'];
-            if (!dataStr) return;
-            
-            let dataManutencao;
-            if (dataStr.includes('/')) {
-                const parts = dataStr.split('/');
-                if (parts.length === 3) {
-                    // Assumir formato DD/MM/YYYY
-                    dataManutencao = new Date(parts[2], parts[1] - 1, parts[0]);
-                }
-            } else {
-                dataManutencao = new Date(dataStr);
-            }
-            
-            if (dataManutencao && !isNaN(dataManutencao.getTime())) {
-                const month = dataManutencao.getMonth(); // 0-11
-                
-                // Custos
-                const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
-                const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
-                costs[month] += valorMaterial + valorMaoObra;
-                
-                // Corretivas
-                if (row['Tipo de Manutenção'] === 7) {
-                    correctives[month]++;
-                }
-                
-                // Status das ordens por mês
-                const estado = row['Estado'] || 'Não Iniciada';
-                if (statusByMonth[estado]) {
-                    statusByMonth[estado][month]++;
-                }
-            }
-        });
-    } catch (e) {
-        console.log('Erro ao calcular dados mensais:', e);
-    }
-    
-    return { costs, correctives, statusByMonth };
-}
-
-function calculateMTTRMTBF(data) {
-    // MTTR e MTBF simulados baseados nos dados
-    const mttr = [8, 6, 4]; // Trimestral
-    const mtbf = Array(12).fill(0).map((_, i) => {
-        const monthData = data.filter(row => {
-            const dataStr = row['Data Manutenção'];
-            if (!dataStr) return false;
-            
-            let date;
-            if (dataStr.includes('/')) {
-                const parts = dataStr.split('/');
-                if (parts.length === 3) {
-                    date = new Date(parts[2], parts[1] - 1, parts[0]);
-                }
-            } else {
-                date = new Date(dataStr);
-            }
-            
-            return date && !isNaN(date.getTime()) && date.getMonth() === i;
-        });
-        return Math.max(100, 1000 - monthData.length * 10);
-    });
-    
-    return { mttr, mtbf };
-}
-
-function calculateAdditionalChartsData(data) {
-    const maintenanceTypeCounts = {};
-    const criticalityCounts = {};
-    const analystCounts = {};
-    const equipmentCounts = {};
-
-    data.forEach(row => {
-        // Tipo de Manutenção
-        const tipoDesc = TIPO_MAPPING[row["Tipo de Manutenção"]] || "Outros";
-        maintenanceTypeCounts[tipoDesc] = (maintenanceTypeCounts[tipoDesc] || 0) + 1;
-
-        // Criticidade
-        const criticidade = row["Criticidade"];
-        if (criticidade !== undefined && criticidade !== null) {
-            criticalityCounts[criticidade] = (criticalityCounts[criticidade] || 0) + 1;
-        }
-
-        // Analista
-        const analyst = row["Nome do Analista"];
-        if (analyst) {
-            analystCounts[analyst] = (analystCounts[analyst] || 0) + 1;
-        }
-
-        // Equipamento
-        const equipment = row["Nome Equipamento"];
-        if (equipment) {
-            equipmentCounts[equipment] = (equipmentCounts[equipment] || 0) + 1;
-        }
-    });
-
-    // Top 5 Equipamentos
-    const sortedEquipment = Object.entries(equipmentCounts)
-        .sort(([, countA], [, countB]) => countB - countA)
-        .slice(0, 5)
-        .map(([equipment, count]) => ({ equipment, count }));
-
-    return {
-        maintenanceTypeCounts,
-        criticalityCounts,
-        analystCounts,
-        topEquipment: sortedEquipment
-    };
-}
-
-function updateKPIs(kpis) {
-    const elements = {
-        'kpi-corretivas': kpis.corretivas || 0,
-        'kpi-preventivas': kpis.preventivas || 0,
-        'kpi-preventivas-venc': kpis.preventivasVenc || 0,
-        'kpi-preditivas': kpis.preditivas || 0,
-        'kpi-melhorias': kpis.melhorias || 0,
-        'kpi-equipamentos': kpis.equipamentos || 0,
-        'kpi-os-total': kpis.osTotal || 0,
-        'kpi-availability': Math.round(kpis.availability || 0) + '%',
-        'kpi-custo-total': 'R$ ' + (kpis.custoTotal || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})
-    };
-    
-    Object.entries(elements).forEach(([id, value]) => {
-        const element = document.getElementById(id);
-        if (element) element.textContent = value;
-    });
-}
-
-function createAllCharts(data) {
-    try {
-        createMTTRChart(data.mttr);
-        createMTBFChart(data.mtbf);
-        createMonthlyCostsChart(data.monthly_costs);
-        createMonthlyCorrectivesChart(data.monthly_correctives);
-        createMonthlyStatusChart(data.monthly_status);
-        
-        // Novos gráficos
-        if (data.additionalData) {
-            createMaintenanceTypeChart(data.additionalData.maintenanceTypeCounts);
-            createCriticalityChart(data.additionalData.criticalityCounts);
-            createTopEquipmentChart(data.additionalData.topEquipment);
-            createAnalystChart(data.additionalData.analystCounts);
-        }
-    } catch (error) {
-        console.error('Erro ao criar gráficos:', error);
-    }
-}
-
-function openMTTRModal() {
-    const modal = document.getElementById('mttrModal');
-    if (!modal) return;
-
-    // Preencher os campos com os valores atuais
-    if (dashboardData && dashboardData.mttr) {
-        document.getElementById('mttrQ1').value = dashboardData.mttr[0];
-        document.getElementById('mttrQ2').value = dashboardData.mttr[1];
-        document.getElementById('mttrQ3').value = dashboardData.mttr[2];
-    }
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeMTTRModal() {
-    const modal = document.getElementById('mttrModal');
-    if (!modal) return;
-
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
-
-function updateMTTR() {
-    const q1 = parseFloat(document.getElementById('mttrQ1').value);
-    const q2 = parseFloat(document.getElementById('mttrQ2').value);
-    const q3 = parseFloat(document.getElementById('mttrQ3').value);
-
-    // Validar se todos os valores são números válidos
-    if (isNaN(q1) || isNaN(q2) || isNaN(q3)) {
-        alert('Por favor, preencha todos os campos com valores válidos');
-        return;
-    }
-
-    // Atualizar os dados
-    if (dashboardData) {
-        dashboardData.mttr = [q1, q2, q3];
-        // Recriar o gráfico
-    // Persistir override
-    dashboardOverrides.mttr = [q1, q2, q3];
-    saveOverrides();
-    createMTTRChart(dashboardData.mttr);
-    }
-
-    // Fechar o modal
-    closeMTTRModal();
-}
-
-function openMTBFModal() {
-    const modal = document.getElementById('mtbfModal');
-    if (!modal) return;
-
-    if (dashboardData && dashboardData.mtbf) {
-        const mtbfInputs = [
-            'mtbfJan', 'mtbfFev', 'mtbfMar', 'mtbfAbr', 'mtbfMai', 'mtbfJun',
-            'mtbfJul', 'mtbfAgo', 'mtbfSet', 'mtbfOut', 'mtbfNov', 'mtbfDez'
+        const summaryData = [
+            { Indicador: 'Corretivas (Total Ano)', Valor: totalCorrectives },
+            { Indicador: 'Preventivas', Valor: kpis.preventivas },
+            { Indicador: 'Preventivas a Vencer', Valor: kpis.preventivasVencer },
+            { Indicador: 'Preditivas', Valor: kpis.preditivas },
+            { Indicador: 'Melhorias', Valor: kpis.melhorias },
+            { Indicador: 'Equipamentos Instalados', Valor: kpis.equipamentos },
+            { Indicador: 'O.S Cadastradas', Valor: kpis.osCadastradas },
+            { Indicador: 'Custo Total (R$)', Valor: totalCost.toFixed(2) },
+            { Indicador: 'Disponibilidade Média (%)', Valor: kpis.disponibilidade },
+            { Indicador: 'Meta Disponibilidade (%)', Valor: targets.disponibilidade },
+            { Indicador: 'Meta MTTR', Valor: targets.mttr },
+            { Indicador: 'Meta MTBF', Valor: targets.mtbf },
         ];
-        mtbfInputs.forEach((id, index) => {
-            const inputElement = document.getElementById(id);
-            if (inputElement) {
-                inputElement.value = dashboardData.mtbf[index];
-            }
-        });
+        const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+
+        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const monthlyData = months.map((month, i) => ({
+            Mês: month,
+            'Custo Mensal (R$)': kpis.custo_mensal[i] || 0,
+            'O.S Corretivas': kpis.corretivas_mensal[i] || 0,
+            'MTBF Mensal': charts.mtbf[i] || 0
+        }));
+        const wsMonthly = XLSX.utils.json_to_sheet(monthlyData);
+        
+        const mttrData = [
+            { Trimestre: 'Trim. 1', MTTR: charts.mttr[0] || 0 },
+            { Trimestre: 'Trim. 2', MTTR: charts.mttr[1] || 0 },
+            { Trimestre: 'Trim. 3', MTTR: charts.mttr[2] || 0 }
+        ];
+        const wsMttr = XLSX.utils.json_to_sheet(mttrData);
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumo KPIs');
+        XLSX.utils.book_append_sheet(wb, wsMonthly, 'Dados Mensais');
+        XLSX.utils.book_append_sheet(wb, wsMttr, 'Dados MTTR');
+        
+        XLSX.writeFile(wb, `dados-manutencao-${year}.xlsx`);
+
+    } catch(e) {
+        console.error("Erro ao gerar XLSX:", e);
+        alert("Ocorreu um erro ao gerar o arquivo Excel.");
+    } finally {
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        lucide.createIcons();
     }
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
 }
 
-function closeMTBFModal() {
-    const modal = document.getElementById('mtbfModal');
-    if (!modal) return;
+// --- ANÁLISES AVANÇADAS ---
 
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
+function showParetoAnalysis() {
+    showModal('paretoModal');
+    generateParetoChart();
 }
 
-function updateMTBF() {
-    const mtbfInputs = [
-        'mtbfJan', 'mtbfFev', 'mtbfMar', 'mtbfAbr', 'mtbfMai', 'mtbfJun',
-        'mtbfJul', 'mtbfAgo', 'mtbfSet', 'mtbfOut', 'mtbfNov', 'mtbfDez'
+function generateParetoChart() {
+    if (!currentYearData || !currentYearData.kpis) return;
+    
+    const kpis = currentYearData.kpis;
+    const corretivasMensal = kpis.corretivas_mensal || Array(12).fill(0);
+    
+    // Simular dados de causas de falha para análise de Pareto
+    const causasSimuladas = [
+        { causa: 'Falta de Lubrificação', quantidade: Math.max(Math.floor(corretivasMensal.reduce((a,b) => a+b, 0) * 0.35), 1) },
+        { causa: 'Desgaste Natural', quantidade: Math.max(Math.floor(corretivasMensal.reduce((a,b) => a+b, 0) * 0.25), 1) },
+        { causa: 'Sobrecarga', quantidade: Math.max(Math.floor(corretivasMensal.reduce((a,b) => a+b, 0) * 0.15), 1) },
+        { causa: 'Falha Elétrica', quantidade: Math.max(Math.floor(corretivasMensal.reduce((a,b) => a+b, 0) * 0.12), 1) },
+        { causa: 'Erro Operacional', quantidade: Math.max(Math.floor(corretivasMensal.reduce((a,b) => a+b, 0) * 0.08), 1) },
+        { causa: 'Outros', quantidade: Math.max(Math.floor(corretivasMensal.reduce((a,b) => a+b, 0) * 0.05), 1) }
     ];
-    const newMtbfData = [];
-    let isValid = true;
-
-    mtbfInputs.forEach(id => {
-        const value = parseFloat(document.getElementById(id).value);
-        if (isNaN(value)) {
-            isValid = false;
-        }
-        newMtbfData.push(value);
-    });
-
-    if (!isValid) {
-        alert('Por favor, preencha todos os campos com valores numéricos válidos para MTBF.');
-        return;
-    }
-
-    if (dashboardData) {
-        dashboardData.mtbf = newMtbfData;
-    // Persistir override
-    dashboardOverrides.mtbf = newMtbfData.slice();
-    saveOverrides();
-    createMTBFChart(dashboardData.mtbf);
-    }
-
-    closeMTBFModal();
-}
-
-function createMTTRChart(mttrData) {
-    const ctx = document.getElementById('mttrChart');
-    if (!ctx) return;
     
-    if (charts.mttr) charts.mttr.destroy();
+    // Ordenar por quantidade (decrescente)
+    causasSimuladas.sort((a, b) => b.quantidade - a.quantidade);
     
-    const mediaGeral = mttrData.reduce((a, b) => a + b, 0) / mttrData.length;
-    
-    charts.mttr = new Chart(ctx.getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: ['Q1', 'Q2', 'Q3'],
-            datasets: [{
-                label: 'MTTR (horas)',
-                data: mttrData,
-                backgroundColor: accentColor,
-                borderColor: accentColor,
-                borderWidth: 1
-            }, {
-                label: 'Média MTTR',
-                data: Array(3).fill(mediaGeral),
-                type: 'line',
-                borderColor: '#ef4444',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                fill: false
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: 'Tempo Médio de Reparo por Trimestre (MTTR)',
-                    color: 'white',
-                    font: { size: 16 }
-                },
-                legend: { 
-                    labels: { color: 'white', padding: 20 },
-                    position: 'bottom'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return `${context.dataset.label}: ${context.parsed.y.toFixed(1)} horas`;
-                        },
-                        afterBody: function(context) {
-                            return [`\nMédia Geral: ${mediaGeral.toFixed(1)} horas`];
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: { 
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Horas',
-                        color: 'white'
-                    },
-                    ticks: { 
-                        color: 'white',
-                        callback: function(value) {
-                            return value.toFixed(1) + 'h';
-                        }
-                    },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
-                },
-                x: { 
-                    title: {
-                        display: true,
-                        text: 'Trimestre',
-                        color: 'white'
-                    },
-                    ticks: { color: 'white' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
-                }
-            }
-        }
-    });
-    // Mapear pelo ID do canvas para compatibilidade com o modal de edição
-    charts['mttrChart'] = charts.mttr;
-}
-
-function createMTBFChart(mtbfData) {
-    const ctx = document.getElementById('mtbfChart');
-    if (!ctx) return;
-    
-    if (charts.mtbf) charts.mtbf.destroy();
-    
-    charts.mtbf = new Chart(ctx.getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: meses,
-            datasets: [{
-                label: 'MTBF (horas)',
-                data: mtbfData,
-                borderColor: accentColor,
-                backgroundColor: accentColor + '20',
-                fill: true,
-                tension: 0.4,
-                borderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                datalabels: {
-                    align: 'end',
-                    anchor: 'end',
-                    formatter: function(value) {
-                        return value.toFixed(0);
-                    },
-                    color: 'white',
-                    font: { size: 10 },
-                    padding: 6
-                }
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { 
-                    labels: { 
-                        color: 'white',
-                        font: { size: 11 },
-                        padding: 10,
-                        boxWidth: 15
-                    },
-                    position: 'bottom'
-                },
-                title: {
-                    display: true,
-                    text: 'Tempo Médio Entre Falhas (MTBF)',
-                    color: 'white',
-                    font: { size: 13 },
-                    padding: { bottom: 10 }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    titleColor: 'white',
-                    bodyColor: 'white',
-                    padding: 10,
-                    callbacks: {
-                        label: function(context) {
-                            return `${context.dataset.label}: ${context.parsed.y.toFixed(0)}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: { 
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Horas',
-                        color: 'white',
-                        font: { size: 11 }
-                    },
-                    ticks: { 
-                        color: 'white',
-                        font: { size: 10 },
-                        maxTicksLimit: 6,
-                        callback: function(value) {
-                            return value.toFixed(0);
-                        }
-                    },
-                    grid: { 
-                        color: 'rgba(255,255,255,0.1)',
-                        drawBorder: false
-                    }
-                },
-                x: { 
-                    title: {
-                        display: true,
-                        text: 'Mês',
-                        color: 'white',
-                        font: { size: 11 }
-                    },
-                    ticks: { 
-                        color: 'white',
-                        font: { size: 10 }
-                    },
-                    grid: { 
-                        color: 'rgba(255,255,255,0.1)',
-                        drawBorder: false
-                    }
-                }
-            }
-        }
-    });
-    charts['mtbfChart'] = charts.mtbf;
-}
-
-function createMonthlyCostsChart(costsData) {
-    const ctx = document.getElementById('monthlyCostsChart');
-    if (!ctx) return;
-    
-    if (charts.costs) charts.costs.destroy();
-    
-    const custoTotal = costsData.reduce((a, b) => a + b, 0);
-    const mediaMensal = custoTotal / costsData.length;
-    
-    charts.costs = new Chart(ctx.getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: meses,
-            datasets: [{
-                label: 'Custos Mensais',
-                data: costsData,
-                backgroundColor: '#10b981',
-                borderColor: '#10b981',
-                borderWidth: 1,
-                order: 2,
-                datalabels: {
-                    align: 'end',
-                    anchor: 'end',
-                    display: function(context) {
-                        return context.dataset.data[context.dataIndex] > 0;
-                    },
-                    formatter: function(value) {
-                        if (value >= 1000000) {
-                            return (value / 1000000).toFixed(1) + 'M';
-                        }
-                        return (value / 1000).toFixed(0) + 'K';
-                    },
-                    color: 'white',
-                    font: {
-                        size: 10
-                    }
-                }
-            }, {
-                label: 'Média Mensal',
-                data: Array(12).fill(mediaMensal),
-                type: 'line',
-                borderColor: '#f59e0b',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                fill: false,
-                order: 1,
-                datalabels: {
-                    display: false
-                }
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            barPercentage: 0.6,
-            categoryPercentage: 0.7,
-            plugins: {
-                title: {
-                    display: true,
-                    text: [
-                        'Custos Mensais de Manutenção',
-                        `Total: ${(custoTotal >= 1000000 ? (custoTotal/1000000).toFixed(1) + 'M' : (custoTotal/1000).toFixed(0) + 'K')}`,
-                        `Média: ${(mediaMensal >= 1000000 ? (mediaMensal/1000000).toFixed(1) + 'M' : (mediaMensal/1000).toFixed(0) + 'K')}`
-                    ],
-                    color: 'white',
-                    font: { size: 13 },
-                    padding: { bottom: 10 }
-                },
-                legend: { 
-                    labels: { 
-                        color: 'white', 
-                        padding: 10,
-                        font: { size: 11 },
-                        boxWidth: 15
-                    },
-                    position: 'bottom'
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            const value = context.parsed.y;
-                            let formattedValue;
-                            if (value >= 1000000) {
-                                formattedValue = 'R$ ' + (value/1000000).toFixed(1) + 'M';
-                            } else {
-                                formattedValue = 'R$ ' + (value/1000).toFixed(0) + 'K';
-                            }
-                            return `${context.dataset.label}: ${formattedValue}`;
-                        },
-                        afterBody: function(tooltipItems) {
-                            const dataIndex = tooltipItems[0].dataIndex;
-                            const percentual = (costsData[dataIndex] / custoTotal * 100).toFixed(1);
-                            return [`\nRepresenta ${percentual}% do custo total`];
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: { 
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Valor',
-                        color: 'white',
-                        padding: { bottom: 10 }
-                    },
-                    position: 'left',
-                    ticks: { 
-                        color: 'white',
-                        callback: function(value) {
-                            if (value >= 1000000) {
-                                return (value / 1000000).toFixed(1) + 'M';
-                            } else if (value >= 1000) {
-                                return (value / 1000).toFixed(0) + 'K';
-                            }
-                            return value;
-                        },
-                        maxTicksLimit: 5,
-                        padding: 10,
-                        font: {
-                            size: 10
-                        }
-                    },
-                    grid: { 
-                        color: 'rgba(255,255,255,0.1)',
-                        drawBorder: false
-                    }
-                },
-                x: { 
-                    title: {
-                        display: true,
-                        text: 'Mês',
-                        color: 'white'
-                    },
-                    ticks: { color: 'white' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
-                }
-            }
-        }
-    });
-    charts['monthlyCostsChart'] = charts.costs;
-}
-
-function createMonthlyCorrectivesChart(correctivesData) {
-    const ctx = document.getElementById('monthlyCorrectivesChart');
-    if (!ctx) return;
-    
-    if (charts.correctives) charts.correctives.destroy();
-    
-    const mediaCorretivas = correctivesData.reduce((a, b) => a + b, 0) / correctivesData.length;
-    const totalCorretivas = correctivesData.reduce((a, b) => a + b, 0);
-    
-    charts.correctives = new Chart(ctx.getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: meses,
-            datasets: [{
-                label: 'O.S Corretivas',
-                data: correctivesData,
-                borderColor: '#ef4444',
-                backgroundColor: '#ef444420',
-                fill: true,
-                tension: 0.4,
-                order: 2,
-                borderWidth: 2,
-                datalabels: {
-                    align: 'end',
-                    anchor: 'end',
-                    display: function(context) {
-                        return context.dataset.data[context.dataIndex] > 0;
-                    },
-                    formatter: function(value) {
-                        return value.toFixed(0);
-                    },
-                    color: 'white',
-                    font: {
-                        size: 10
-                    },
-                    padding: 6
-                }
-            }, {
-                label: 'Média Mensal',
-                data: Array(12).fill(mediaCorretivas),
-                borderColor: '#f59e0b',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                fill: false,
-                order: 1,
-                datalabels: {
-                    display: false
-                }
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: true,
-                    text: [
-                        'Manutenções Corretivas por Mês',
-                        `Total: ${totalCorretivas} | Média: ${mediaCorretivas.toFixed(0)}`
-                    ],
-                    color: 'white',
-                    font: { size: 13 },
-                    padding: { bottom: 10 }
-                },
-                legend: { 
-                    labels: { 
-                        color: 'white',
-                        padding: 10,
-                        font: { size: 11 },
-                        boxWidth: 15
-                    },
-                    position: 'bottom'
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            return `${context.dataset.label}: ${context.parsed.y.toFixed(0)}`;
-                        },
-                        afterBody: function(tooltipItems) {
-                            const dataIndex = tooltipItems[0].dataIndex;
-                            const percentual = (correctivesData[dataIndex] / totalCorretivas * 100).toFixed(1);
-                            return [`\nRepresenta ${percentual}% do total de O.S`];
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: { 
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Quantidade',
-                        color: 'white',
-                        padding: { bottom: 10 }
-                    },
-                    ticks: { 
-                        color: 'white',
-                        callback: function(value) {
-                            return value.toFixed(0);
-                        },
-                        maxTicksLimit: 5,
-                        padding: 10,
-                        font: {
-                            size: 10
-                        }
-                    },
-                    grid: { 
-                        color: 'rgba(255,255,255,0.1)',
-                        drawBorder: false
-                    }
-                },
-                x: { 
-                    title: {
-                        display: true,
-                        text: 'Mês',
-                        color: 'white',
-                        padding: { top: 10 }
-                    },
-                    ticks: { 
-                        color: 'white',
-                        font: {
-                            size: 10
-                        }
-                    },
-                    grid: { 
-                        color: 'rgba(255,255,255,0.1)',
-                        drawBorder: false
-                    }
-                }
-            }
-        }
-    });
-    charts['monthlyCorrectivesChart'] = charts.correctives;
-}
-
-function createMonthlyStatusChart(statusData) {
-    const ctx = document.getElementById('monthlyStatusChart');
-    if (!ctx) return;
-    
-    if (charts.status) charts.status.destroy();
-    
-    const datasets = [];
-    const colors = {
-        'Não Iniciada': '#ef4444',
-        'Requisitada': '#f59e0b', 
-        'Iniciada': '#10b981',
-        'Liberada': '#3b82f6',
-        'Suspensa': '#8b5cf6'
-    };
-    
-    Object.keys(statusData).forEach(status => {
-        datasets.push({
-            label: status,
-            data: statusData[status],
-            borderColor: colors[status] || '#6b7280',
-            backgroundColor: (colors[status] || '#6b7280') + '20',
-            fill: false,
-            tension: 0.4
-        });
-    });
-    
-    charts.status = new Chart(ctx.getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: meses,
-            datasets: datasets
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { 
-                    labels: { 
-                        color: 'white',
-                        font: { size: 11 },
-                        boxWidth: 15,
-                        padding: 8
-                    },
-                    position: 'top',
-                    maxWidth: 800
-                },
-                title: {
-                    display: true,
-                    text: 'Status das Ordens de Manutenção',
-                    color: 'white',
-                    font: { size: 14 },
-                    padding: { bottom: 10 }
-                },
-                datalabels: {
-                    display: function(context) {
-                        return context.dataset.data[context.dataIndex] > 0;
-                    },
-                    color: 'white',
-                    font: {
-                        size: 10
-                    },
-                    align: 'end',
-                    anchor: 'end'
-                }
-            },
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            scales: {
-                y: { 
-                    beginAtZero: true,
-                    ticks: { color: 'white' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
-                },
-                x: { 
-                    ticks: { color: 'white' },
-                    grid: { color: 'rgba(255,255,255,0.1)' }
-                }
-            }
-        }
-    });
-    charts['monthlyStatusChart'] = charts.status;
-}
-
-function createMaintenanceTypeChart(data) {
-    const ctx = document.getElementById("maintenanceTypeChart");
-    if (!ctx) return;
-    
-    if (charts.maintenanceType) charts.maintenanceType.destroy();
-
-    const labels = Object.keys(data);
-    const values = Object.values(data);
-    const total = values.reduce((a, b) => a + b, 0);
-
-    // Calcular porcentagens e ordenar os dados
-    const dataWithPercentages = labels.map((label, index) => ({
-        label,
-        value: values[index],
-        percentage: (values[index] / total * 100)
-    })).sort((a, b) => b.percentage - a.percentage);
-
-    // Criar dados para o gráfico de velocímetro
-    const gaugeData = {
-        labels: dataWithPercentages.map(d => d.label),
-        datasets: [{
-            data: dataWithPercentages.map(d => d.percentage),
-            backgroundColor: [
-                "#00f6ff", "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
-                "#8b5cf6", "#ec4899", "#f97316", "#6b7280", "#a855f7"
-            ],
-            borderColor: '#1e293b',
-            borderWidth: 2,
-            circumference: 180, // Meio círculo
-            rotation: 270 // Começa do lado esquerdo
-        }]
-    };
-
-    charts.maintenanceType = new Chart(ctx.getContext('2d'), {
-        type: "doughnut",
-        data: gaugeData,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
-            plugins: { 
-                legend: { 
-                    display: true,
-                    position: 'right',
-                    labels: { 
-                        color: "white",
-                        font: { size: 11 },
-                        boxWidth: 12,
-                        padding: 8,
-                        usePointStyle: true,
-                        pointStyle: 'circle',
-                        filter: function(legendItem, data) {
-                            return data.datasets[0].data[legendItem.index] > 1; // Só mostra itens com mais de 1%
-                        },
-                        generateLabels: function(chart) {
-                            const data = chart.data;
-                            return data.labels.map((label, i) => ({
-                                text: `${label} (${data.datasets[0].data[i].toFixed(1)}%)`,
-                                fillStyle: data.datasets[0].backgroundColor[i],
-                                hidden: false,
-                                index: i,
-                                fontColor: 'white'
-                            }));
-                        }
-                    },
-                    align: 'center',
-                    maxWidth: 200,
-                    maxHeight: 200
-                },
-                title: {
-                    display: true,
-                    text: ['Distribuição de Ordens por Tipo', `Total: ${total.toLocaleString()} ordens`],
-                    color: 'white',
-                    font: { size: 13 },
-                    padding: { bottom: 15 }
-                },
-                tooltip: {
-                    enabled: true,
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    titleColor: 'white',
-                    bodyColor: 'white',
-                    padding: 10,
-                    callbacks: {
-                        label: function(context) {
-                            const dataWithPercentages = context.chart.data.labels.map((label, i) => ({
-                                label,
-                                value: data[label],
-                                percentage: context.chart.data.datasets[0].data[i]
-                            }));
-                            const item = dataWithPercentages[context.dataIndex];
-                            return `${item.label}: ${item.value.toLocaleString()} (${item.percentage.toFixed(1)}%)`;
-                        }
-                    }
-                },
-                datalabels: {
-                    display: function(context) {
-                        return context.dataset.data[context.dataIndex] > 4; // Só mostra rótulos para valores > 4%
-                    },
-                    color: 'white',
-                    font: { size: 10, weight: 'bold' },
-                    formatter: function(value, context) {
-                        return value.toFixed(1) + '%';
-                    },
-                    align: 'end',
-                    anchor: 'end',
-                    offset: 10
-                }
-            },
-            layout: {
-                padding: {
-                    top: 30,
-                    bottom: 30,
-                    left: 20,
-                    right: 20
-                }
-            },
-            elements: {
-                arc: {
-                    borderWidth: 0
-                }
-            }
-        }
-    });
-
-    // Adicionar texto central com o maior valor
-    const maxItem = dataWithPercentages[0];
-    if (maxItem && ctx) {
-        const ctxCenter = ctx.getContext('2d');
-        ctxCenter.save();
-        ctxCenter.fillStyle = 'white';
-        
-        // Ajustar o tamanho do texto baseado no comprimento do label
-        const labelFontSize = maxItem.label.length > 12 ? 16 : 20;
-        
-        // Posicionar os textos mais separados
-        ctxCenter.font = `bold ${labelFontSize}px Arial`;
-        ctxCenter.textAlign = 'center';
-        ctxCenter.textBaseline = 'middle';
-        ctxCenter.fillText(`${maxItem.label}`, ctx.width / 2, ctx.height / 2 - 25);
-        
-        ctxCenter.font = 'bold 28px Arial';
-        ctxCenter.fillText(`${maxItem.percentage.toFixed(1)}%`, ctx.width / 2, ctx.height / 2 + 25);
-        
-        ctxCenter.restore();
-    }
-}
-
-function createCriticalityChart(data) {
-    const ctx = document.getElementById("criticalityChart");
-    if (!ctx) return;
-    
-    if (charts.criticality) charts.criticality.destroy();
-
-    const labels = Object.keys(data).sort();
-    const values = labels.map(key => data[key]);
-
-    charts.criticality = new Chart(ctx.getContext('2d'), {
-        type: "bar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Número de Ordens",
-                data: values,
-                backgroundColor: accentColor,
-                borderColor: accentColor,
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: "white" } } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { color: "white" },
-                    grid: { color: "rgba(255,255,255,0.1)" }
-                },
-                x: {
-                    ticks: { color: "white" },
-                    grid: { color: "rgba(255,255,255,0.1)" }
-                }
-            }
-        }
-    });
-    charts['maintenanceTypeChart'] = charts.maintenanceType;
-    charts['criticalityChart'] = charts.criticality;
-}
-
-function createTopEquipmentChart(data) {
-    const ctx = document.getElementById("topEquipmentChart");
-    if (!ctx) return;
-    
-    if (charts.topEquipment) charts.topEquipment.destroy();
-
-    const labels = data.map(item => item.equipment);
-    const values = data.map(item => item.count);
-
-    charts.topEquipment = new Chart(ctx.getContext('2d'), {
-        type: "bar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Número de Ordens",
-                data: values,
-                backgroundColor: accentColor,
-                borderColor: accentColor,
-                borderWidth: 1
-            }]
-        },
-        options: {
-            indexAxis: "y", // Makes it a horizontal bar chart
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: "white" } } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { color: "white" },
-                    grid: { color: "rgba(255,255,255,0.1)" }
-                },
-                x: {
-                    ticks: { color: "white" },
-                    grid: { color: "rgba(255,255,255,0.1)" }
-                }
-            }
-        }
-    });
-    charts['topEquipmentChart'] = charts.topEquipment;
-}
-
-function createAnalystChart(data) {
-    const ctx = document.getElementById("analystChart");
-    if (!ctx) return;
-    
-    if (charts.analyst) charts.analyst.destroy();
-
-    const labels = Object.keys(data);
-    const values = Object.values(data);
-
-    charts.analyst = new Chart(ctx.getContext('2d'), {
-        type: "doughnut",
-        data: {
-            labels: labels,
-            datasets: [{
-                data: values,
-                backgroundColor: [
-                    "#00f6ff", "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
-                    "#8b5cf6", "#ec4899", "#f97316", "#6b7280", "#a855f7"
-                ],
-                hoverOffset: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { labels: { color: "white" } } }
-        }
-    });
-    charts['analystChart'] = charts.analyst;
-}
-
-function filterEquipmentTable(searchText) {
-    const table = document.getElementById('equipment-table');
-    if (!table) return;
-
-    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
-    searchText = searchText.toLowerCase();
-
-    for (let row of rows) {
-        const codeCell = row.getElementsByTagName('td')[1]; // índice 1 é a coluna do código
-        if (codeCell) {
-            const code = codeCell.textContent || codeCell.innerText;
-            if (code.toLowerCase().includes(searchText)) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
-        }
-    }
-}
-
-function loadEquipmentAnalysis() {
-    if (!currentExcelData) return;
-    
-    try {
-        // Análise por equipamento
-        const equipmentStats = {};
-        
-        // Usar dados filtrados se houver filtros ativos, caso contrário usar todos os dados
-        const dataToUse = (selectedYear || selectedMonth !== '') ? filterData() : currentExcelData;
-        
-        dataToUse.forEach(row => {
-            const equipmentName = row['Nome Equipamento'];
-            if (!equipmentName) return;
-            
-            if (!equipmentStats[equipmentName]) {
-                equipmentStats[equipmentName] = {
-                    name: equipmentName,
-                    code: row['Equipamento'] || 'N/A',
-                    tag: row['Tag'] || row['Descrição do Tag'] || 'N/A',
-                    total_orders: 0,
-                    corrective: 0,
-                    preventive: 0,
-                    cost: 0
-                };
-            }
-            
-            equipmentStats[equipmentName].total_orders++;
-            
-            if (row['Tipo de Manutenção'] === 7) {
-                equipmentStats[equipmentName].corrective++;
-            } else if (row['Tipo de Manutenção'] === 10) {
-                equipmentStats[equipmentName].preventive++;
-            }
-            
-            const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
-            const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
-            equipmentStats[equipmentName].cost += valorMaterial + valorMaoObra;
-        });
-        
-        // Converter para array e ordenar por custo
-        const equipmentArray = Object.values(equipmentStats)
-            .sort((a, b) => b.cost - a.cost);
-        
-        const content = document.getElementById('equipment-analysis-content');
-        if (content) {
-            content.innerHTML = `
-                <h3 class="text-white font-semibold mb-4">Análise de Equipamentos</h3>
-                <div class="mb-4">
-                    <input type="text" 
-                           id="equipment-search" 
-                           placeholder="Buscar por código..." 
-                           class="p-2 rounded bg-gray-700 text-white border border-gray-600 w-64"
-                           oninput="filterEquipmentTable(this.value)">
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-white" id="equipment-table">
-                        <thead>
-                            <tr class="border-b border-gray-600">
-                                <th class="text-left p-2">Equipamento</th>
-                                <th class="text-left p-2">Código</th>
-                                <th class="text-left p-2">Tag</th>
-                                <th class="text-left p-2">Total O.S</th>
-                                <th class="text-left p-2">Corretivas</th>
-                                <th class="text-left p-2">Preventivas</th>
-                                <th class="text-left p-2">Custo Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${equipmentArray.map(eq => `
-                                <tr class="border-b border-gray-700">
-                                    <td class="p-2 text-sm">${eq.name}</td>
-                                    <td class="p-2 text-sm">${eq.code}</td>
-                                    <td class="p-2 text-sm">${eq.tag}</td>
-                                    <td class="p-2">${eq.total_orders}</td>
-                                    <td class="p-2 text-red-400">${eq.corrective}</td>
-                                    <td class="p-2 text-green-400">${eq.preventive}</td>
-                                    <td class="p-2">R$ ${eq.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Erro ao carregar análise de equipamentos:', error);
-    }
-}
-
-function loadPredictiveAnalysis() {
-    if (!currentExcelData) return;
-
-    try {
-        // Análise de risco por equipamento
-        const equipmentStats = {};
-
-        currentExcelData.forEach(row => {
-            const equipment = row['Nome Equipamento'];
-            if (!equipment) return;
-
-            if (!equipmentStats[equipment]) {
-                equipmentStats[equipment] = {
-                    name: equipment,
-                    total_orders: 0,
-                    corrective_count: 0,
-                    cost: 0,
-                    criticality_sum: 0,
-                    criticality_count: 0
-                };
-            }
-
-            equipmentStats[equipment].total_orders++;
-
-            if (row['Tipo de Manutenção'] === 7) {
-                equipmentStats[equipment].corrective_count++;
-            }
-
-            const valorMaterial = parseFloat(String(row['Valor Material'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
-            const valorMaoObra = parseFloat(String(row['Valor Mão de Obra'] || '0').replace(',', '.').replace(/"/g, '')) || 0;
-            equipmentStats[equipment].cost += valorMaterial + valorMaoObra;
-
-            const criticality = parseInt(row['Criticidade']);
-            if (!isNaN(criticality)) {
-                equipmentStats[equipment].criticality_sum += criticality;
-                equipmentStats[equipment].criticality_count++;
-            }
-        });
-
-        // Calcular médias e ratios
-        const equipmentArray = Object.values(equipmentStats).map(eq => {
-            return {
-                ...eq,
-                corrective_ratio: eq.total_orders > 0 ? (eq.corrective_count / eq.total_orders) * 100 : 0,
-                avg_criticality: eq.criticality_count > 0 ? eq.criticality_sum / eq.criticality_count : 0
-            };
-        });
-
-        // Normalizar os valores para uma escala de 0-100
-        const maxCost = Math.max(...equipmentArray.map(eq => eq.cost));
-        const maxCriticality = Math.max(...equipmentArray.map(eq => eq.avg_criticality));
-
-        const normalizedArray = equipmentArray.map(eq => {
-            const cost_normalized = maxCost > 0 ? (eq.cost / maxCost) * 100 : 0;
-            const criticality_normalized = maxCriticality > 0 ? (eq.avg_criticality / maxCriticality) * 100 : 0;
-            return {
-                ...eq,
-                cost_normalized,
-                criticality_normalized
-            };
-        });
-
-        // Calcular score de risco com pesos
-        const weightedArray = normalizedArray.map(eq => {
-            const risk_score = (0.5 * eq.corrective_ratio) + (0.3 * eq.cost_normalized) + (0.2 * eq.criticality_normalized);
-            return {
-                ...eq,
-                risk_score
-            };
-        });
-
-        // Ordenar por score de risco e pegar o top 10
-        const riskArray = weightedArray.sort((a, b) => b.risk_score - a.risk_score).slice(0, 10);
-
-        const content = document.getElementById('predictive-analysis-content');
-        if (content) {
-            content.innerHTML = `
-                <h3 class="text-white font-semibold mb-4">Top 10 Equipamentos com Maior Risco</h3>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-white">
-                        <thead>
-                            <tr class="border-b border-gray-600">
-                                <th class="text-left p-2">Equipamento</th>
-                                <th class="text-left p-2">Score de Risco</th>
-                                <th class="text-left p-2">Taxa de Corretivas (%)</th>
-                                <th class="text-left p-2">Custo Total</th>
-                                <th class="text-left p-2">Criticidade Média</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${riskArray.map(eq => `
-                                <tr class="border-b border-gray-700">
-                                    <td class="p-2 text-sm">${eq.name}</td>
-                                    <td class="p-2 font-bold text-red-400">${eq.risk_score.toFixed(2)}</td>
-                                    <td class="p-2">${eq.corrective_ratio.toFixed(2)}%</td>
-                                    <td class="p-2">R$ ${eq.cost.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                                    <td class="p-2">${eq.avg_criticality.toFixed(2)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-    } catch (error) {
-        console.error('Erro ao carregar análise preditiva:', error);
-        const content = document.getElementById('predictive-analysis-content');
-        if (content) {
-            content.innerHTML = `<p class="text-red-500">Erro ao carregar a análise preditiva: ${error.message}</p>`;
-        }
-    }
-}
-
-// Placeholder removido pois está duplicado abaixo
-
-function loadEditForm() {
-    if (!currentExcelData || !currentExcelData.length) {
-        showMessage('warning', 'Nenhum dado disponível para edição. Por favor, faça o upload de um arquivo primeiro.');
-        showView('dashboard');
-        return;
-    }
-
-    console.log('Dados para edição:', currentExcelData); // Debug
-
-    // Atualizar os cabeçalhos da tabela primeiro
-    const headers = document.querySelector('#edit-table thead tr');
-    headers.innerHTML = `
-        <th class="px-6 py-4 text-kpi-accent font-semibold">Data Manutenção</th>
-        <th class="px-6 py-4 text-kpi-accent font-semibold">Equipamento</th>
-        <th class="px-6 py-4 text-kpi-accent font-semibold">Tipo de Manutenção</th>
-        <th class="px-6 py-4 text-kpi-accent font-semibold">Críticidade</th>
-        <th class="px-6 py-4 text-kpi-accent font-semibold">Analista</th>
-        <th class="px-6 py-4 text-kpi-accent font-semibold">Estado</th>
-        <th class="px-6 py-4 text-kpi-accent font-semibold">Custo Material</th>
-        <th class="px-6 py-4 text-kpi-accent font-semibold">Custo M.O.</th>
-        <th class="px-6 py-4 text-kpi-accent font-semibold">Ações</th>
-    `;
-
-    const tableBody = document.getElementById('edit-table-body');
-    tableBody.innerHTML = '';
-
-    currentExcelData.forEach((row, index) => {
-        const tr = document.createElement('tr');
-        tr.className = `${index % 2 === 0 ? 'bg-kpi-main/50' : 'bg-kpi-main/30'} hover:bg-kpi-accent/10 transition-colors duration-200`;
-        tr.setAttribute('data-index', index);
-
-        // Tratamento da data
-        let dataValue = '';
-        if (row['Data Manutenção']) {
-            // Tentar converter a data para o formato correto
-            const dataStr = row['Data Manutenção'];
-            if (dataStr.includes('/')) {
-                const [dia, mes, ano] = dataStr.split('/');
-                dataValue = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
-            } else {
-                const date = new Date(dataStr);
-                if (!isNaN(date.getTime())) {
-                    dataValue = date.toISOString().split('T')[0];
-                }
-            }
-        }
-        
-        tr.innerHTML = `
-            <td class="px-4 py-2">
-                <input type="date" class="bg-transparent border border-gray-600 rounded-lg px-3 py-2 w-full text-white focus:border-kpi-accent focus:ring-1 focus:ring-kpi-accent transition-all duration-200 hover:border-gray-400"
-                       value="${dataValue}" data-field="Data Manutenção">
-            </td>
-            <td class="px-4 py-2">
-                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
-                       value="${row['Nome Equipamento'] || ''}" data-field="Nome Equipamento">
-            </td>
-            <td class="px-4 py-2">
-                <select class="bg-transparent border border-gray-600 rounded-lg px-3 py-2 w-full text-white focus:border-kpi-accent focus:ring-1 focus:ring-kpi-accent transition-all duration-200 hover:border-gray-400" data-field="Tipo de Manutenção">
-                    ${Object.entries(TIPO_MAPPING).map(([value, label]) => 
-                        `<option value="${value}" ${row['Tipo de Manutenção'] == value ? 'selected' : ''}>${label}</option>`
-                    ).join('')}
-                </select>
-            </td>
-            <td class="px-4 py-2">
-                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
-                       value="${row['Criticidade'] || ''}" data-field="Criticidade">
-            </td>
-            <td class="px-4 py-2">
-                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
-                       value="${row['Nome do Analista'] || ''}" data-field="Nome do Analista">
-            </td>
-            <td class="px-4 py-2">
-                <input type="text" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
-                       value="${row['Estado'] || ''}" data-field="Estado">
-            </td>
-            <td class="px-4 py-2">
-                <input type="number" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
-                       value="${row['Valor Material'] || '0'}" data-field="Valor Material" step="0.01" min="0">
-            </td>
-            <td class="px-4 py-2">
-                <input type="number" class="bg-transparent border border-gray-600 rounded px-2 py-1 w-full text-white"
-                       value="${row['Valor Mão de Obra'] || '0'}" data-field="Valor Mão de Obra" step="0.01" min="0">
-            </td>
-            <td class="px-4 py-2">
-                <button class="text-red-400 hover:text-red-300 transition-colors duration-200 p-2 rounded-lg hover:bg-red-500/10" 
-                        onclick="deleteRow(${index})"
-                        title="Excluir registro">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                    </svg>
-                </button>
-            </td>
-        `;
-        tableBody.appendChild(tr);
-    });
-}
-
-function deleteRow(index) {
-    if (confirm('Tem certeza que deseja excluir este registro?')) {
-        currentExcelData.splice(index, 1);
-        loadEditForm(); // Recarrega a tabela
-    }
-}
-
-function saveEditedData() {
-    const rows = document.getElementById('edit-table-body').getElementsByTagName('tr');
-    const updatedData = [];
-
-    for (let row of rows) {
-        const originalRowIndex = row.getAttribute('data-index');
-        const originalRow = currentExcelData[originalRowIndex] || {};
-
-        // Converter a data para o formato correto
-        const dataValue = row.querySelector('[data-field="Data Manutenção"]').value;
-        const [ano, mes, dia] = dataValue.split('-');
-        const dataFormatada = `${dia}/${mes}/${ano}`;
-        
-        const rowData = {
-            ...originalRow, // Preserve other fields
-            'Data Manutenção': dataFormatada,
-            'Nome Equipamento': row.querySelector('[data-field="Nome Equipamento"]').value,
-            'Tipo de Manutenção': parseInt(row.querySelector('[data-field="Tipo de Manutenção"]').value),
-            'Criticidade': row.querySelector('[data-field="Criticidade"]').value,
-            'Nome do Analista': row.querySelector('[data-field="Nome do Analista"]').value,
-            'Estado': row.querySelector('[data-field="Estado"]').value,
-            'Valor Material': parseFloat(row.querySelector('[data-field="Valor Material"]').value),
-            'Valor Mão de Obra': parseFloat(row.querySelector('[data-field="Valor Mão de Obra"]').value)
+    const total = causasSimuladas.reduce((sum, item) => sum + item.quantidade, 0);
+    let acumulado = 0;
+    const dadosPareto = causasSimuladas.map(item => {
+        acumulado += item.quantidade;
+        return {
+            ...item,
+            percentualAcumulado: (acumulado / total) * 100
         };
-        updatedData.push(rowData);
+    });
+    
+    updateChart('paretoChart', 
+        dadosPareto.map(item => item.causa),
+        dadosPareto.map(item => item.quantidade),
+        'Quantidade de Falhas',
+        'bar'
+    );
+    
+    // Atualizar tabela de Pareto
+    const tbody = document.getElementById('pareto-table-body');
+    tbody.innerHTML = '';
+    dadosPareto.forEach(item => {
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${item.causa}</td>
+            <td>${item.quantidade}</td>
+            <td>${((item.quantidade / total) * 100).toFixed(1)}%</td>
+            <td>${item.percentualAcumulado.toFixed(1)}%</td>
+        `;
+    });
+}
+
+function showROIAnalysis() {
+    showModal('roiModal');
+    calculateROI();
+}
+
+function calculateROI() {
+    if (!currentYearData || !currentYearData.kpis) return;
+    
+    const kpis = currentYearData.kpis;
+    const custoTotal = (kpis.custo_mensal || Array(12).fill(0)).reduce((a, b) => a + b, 0);
+    const corretivasTotal = (kpis.corretivas_mensal || Array(12).fill(0)).reduce((a, b) => a + b, 0);
+    
+    // Simular dados de ROI
+    const investimentoPreditiva = custoTotal * 0.15; // 15% do custo total em preditiva
+    const reducaoCorretivas = corretivasTotal * 0.4; // 40% de redução em corretivas
+    const custoMedioCorretiva = custoTotal / Math.max(corretivasTotal, 1);
+    const economiaAnual = reducaoCorretivas * custoMedioCorretiva;
+    const roi = ((economiaAnual - investimentoPreditiva) / investimentoPreditiva) * 100;
+    const payback = investimentoPreditiva / (economiaAnual / 12); // meses
+    
+    document.getElementById('roi-investimento').textContent = `R$ ${investimentoPreditiva.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+    document.getElementById('roi-economia').textContent = `R$ ${economiaAnual.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+    document.getElementById('roi-percentual').textContent = `${roi.toFixed(1)}%`;
+    document.getElementById('roi-payback').textContent = `${payback.toFixed(1)} meses`;
+    
+    // Gráfico de ROI
+    updateChart('roiChart', 
+        ['Investimento', 'Economia Anual', 'ROI Líquido'],
+        [investimentoPreditiva, economiaAnual, economiaAnual - investimentoPreditiva],
+        'Valor (R$)',
+        'bar'
+    );
+}
+
+function showBenchmarking() {
+    showModal('benchmarkModal');
+    generateBenchmarkData();
+}
+
+function generateBenchmarkData() {
+    if (!currentYearData || !currentYearData.kpis) return;
+    
+    const kpis = currentYearData.kpis;
+    
+    // Dados de benchmark da indústria (valores típicos)
+    const benchmarkData = {
+        disponibilidade: { atual: kpis.disponibilidade || 0, benchmark: 95, mundial: 98 },
+        mttr: { atual: currentYearData.charts?.mttr?.[0] || 0, benchmark: 4, mundial: 2 },
+        mtbf: { atual: currentYearData.charts?.mtbf?.[0] || 0, benchmark: 720, mundial: 1440 },
+        custoManutencao: { 
+            atual: ((kpis.custo_mensal || [0]).reduce((a,b) => a+b, 0) / (kpis.equipamentos || 1)), 
+            benchmark: 8000, 
+            mundial: 5000 
+        }
+    };
+    
+    // Atualizar tabela de benchmark
+    const tbody = document.getElementById('benchmark-table-body');
+    tbody.innerHTML = '';
+    
+    Object.entries(benchmarkData).forEach(([metric, values]) => {
+        const row = tbody.insertRow();
+        const status = values.atual >= values.benchmark ? '✅' : '⚠️';
+        const gap = Math.abs(values.atual - values.benchmark);
+        
+        row.innerHTML = `
+            <td>${metric.charAt(0).toUpperCase() + metric.slice(1)}</td>
+            <td>${values.atual.toFixed(1)}</td>
+            <td>${values.benchmark}</td>
+            <td>${values.mundial}</td>
+            <td>${status}</td>
+            <td>${gap.toFixed(1)}</td>
+        `;
+    });
+    
+    // Gráfico de benchmark
+    updateChart('benchmarkChart',
+        ['Disponibilidade (%)', 'MTTR (h)', 'MTBF (h)', 'Custo/Equip (R$)'],
+        [kpis.disponibilidade || 0, currentYearData.charts?.mttr?.[0] || 0, currentYearData.charts?.mtbf?.[0] || 0, benchmarkData.custoManutencao.atual],
+        'Valores Atuais',
+        'bar'
+    );
+}
+
+function showTrendsAnalysis() {
+    showModal('trendsModal');
+    generateTrendsAnalysis();
+}
+
+function generateTrendsAnalysis() {
+    if (!currentYearData || !currentYearData.kpis) return;
+    
+    const kpis = currentYearData.kpis;
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    
+    // Calcular tendências
+    const custoMensal = kpis.custo_mensal || Array(12).fill(0);
+    const corretivasMensal = kpis.corretivas_mensal || Array(12).fill(0);
+    
+    // Tendência de crescimento/redução
+    const tendenciaCusto = calcularTendencia(custoMensal);
+    const tendenciaCorretivas = calcularTendencia(corretivasMensal);
+    
+    document.getElementById('trends-custo').textContent = `${tendenciaCusto > 0 ? '+' : ''}${tendenciaCusto.toFixed(1)}% ao mês`;
+    document.getElementById('trends-corretivas').textContent = `${tendenciaCorretivas > 0 ? '+' : ''}${tendenciaCorretivas.toFixed(1)}% ao mês`;
+    
+    // Projeção para próximos 6 meses
+    const projecaoCusto = [];
+    const projecaoCorretivas = [];
+    const ultimoCusto = custoMensal[custoMensal.length - 1] || 0;
+    const ultimaCorretiva = corretivasMensal[corretivasMensal.length - 1] || 0;
+    
+    for (let i = 1; i <= 6; i++) {
+        projecaoCusto.push(ultimoCusto * Math.pow(1 + tendenciaCusto/100, i));
+        projecaoCorretivas.push(ultimaCorretiva * Math.pow(1 + tendenciaCorretivas/100, i));
+    }
+    
+    const monthsExtended = [...months, 'Jan+1', 'Fev+1', 'Mar+1', 'Abr+1', 'Mai+1', 'Jun+1'];
+    const custosExtended = [...custoMensal, ...projecaoCusto];
+    
+    updateChart('trendsChart', monthsExtended, custosExtended, 'Tendência de Custos', 'line');
+}
+
+function calcularTendencia(dados) {
+    if (dados.length < 2) return 0;
+    
+    const n = dados.length;
+    let somaX = 0, somaY = 0, somaXY = 0, somaX2 = 0;
+    
+    for (let i = 0; i < n; i++) {
+        somaX += i;
+        somaY += dados[i];
+        somaXY += i * dados[i];
+        somaX2 += i * i;
+    }
+    
+    const slope = (n * somaXY - somaX * somaY) / (n * somaX2 - somaX * somaX);
+    const intercept = (somaY - slope * somaX) / n;
+    
+    // Converter slope para percentual mensal
+    const mediaValores = somaY / n;
+    return mediaValores > 0 ? (slope / mediaValores) * 100 : 0;
+}
+
+// Funções básicas para os novos botões
+function showExportOptions() {
+    alert('Funcionalidade de exportação avançada em desenvolvimento. Use os botões de exportar PDF/XLSX no dashboard.');
+}
+
+function showImportDialog() {
+    alert('Funcionalidade de importação em desenvolvimento. Em breve você poderá importar dados de planilhas.');
+}
+
+function showNotifications() {
+    // Redirecionar para o sistema de alertas existente
+    document.getElementById('btn-alerts').click();
+}
+
+function showReportsModal() {
+    alert('Módulo de relatórios personalizados em desenvolvimento. Use as análises disponíveis no menu lateral.');
+}
+
+function showAdvancedAnalytics() {
+    alert('Analytics avançados em desenvolvimento. Acesse as análises de Pareto, ROI, Benchmarking e Tendências disponíveis.');
+}
+
+// --- Funções de salvamento de dados ---
+
+async function saveYearData(e, isNew) {
+    e.preventDefault();
+    
+    const formPrefix = isNew ? 'add' : 'edit';
+    const year = isNew 
+        ? document.getElementById('add-year-input').value
+        : document.getElementById('year-select').value;
+
+    if (!year && isNew) { // Apenas requer o ano para novas entradas
+        alert("O ano é obrigatório.");
+        return;
     }
 
-    currentExcelData = updatedData;
+    const getMonthlyValues = (selector) => Array.from(document.querySelectorAll(selector)).map(input => parseFloat(input.value) || 0);
+
+    const dataToSave = {
+        kpis: {
+            preventivas: parseInt(document.getElementById(`${formPrefix}-preventivas`).value, 10),
+            preventivasVencer: parseInt(document.getElementById(`${formPrefix}-preventivas-vencer`).value, 10),
+            preditivas: parseInt(document.getElementById(`${formPrefix}-preditivas`).value, 10),
+            melhorias: parseInt(document.getElementById(`${formPrefix}-melhorias`).value, 10),
+            equipamentos: parseInt(document.getElementById(`${formPrefix}-equipamentos`).value, 10),
+            osCadastradas: parseInt(document.getElementById(`${formPrefix}-os-cadastradas`).value, 10),
+            disponibilidade: parseFloat(document.getElementById(`${formPrefix}-disponibilidade`).value),
+            custo_mensal: getMonthlyValues(`.${formPrefix}-custo-mensal`),
+            corretivas_mensal: getMonthlyValues(`.${formPrefix}-corretivas-mensal`)
+        },
+        charts: {
+            mttr: document.getElementById(`${formPrefix}-chart-mttr`).value.split(',').map(s => Number(s.trim())),
+            mtbf: document.getElementById(`${formPrefix}-chart-mtbf`).value.split(',').map(s => Number(s.trim()))
+        }
+    };
+
+    if (isNew) {
+        // Apenas anos novos recebem um objeto de metas padrão
+        dataToSave.targets = { mttr: 0, mtbf: 0, disponibilidade: 95 };
+    }
+
+    if (isTestMode) {
+        if (isNew) {
+            mockData[year] = dataToSave;
+            alert(`(Modo Teste) Ano ${year} adicionado. A informação será perdida ao recarregar.`);
+        } else {
+            mockData[year].kpis = dataToSave.kpis;
+            mockData[year].charts = dataToSave.charts;
+            alert('(Modo Teste) Dados atualizados com sucesso!');
+        }
+        closeModal(isNew ? 'addYearModal' : 'editDataModal');
+        if (isNew) {
+            initializeDashboard();
+        } else {
+            listenToYearData(year);
+        }
+        return;
+    }
+
+    try {
+        const docRef = doc(db, "maintenance_data", year);
+        if (isNew) {
+            await setDoc(docRef, dataToSave);
+            alert(`Ano ${year} adicionado com sucesso!`);
+        } else {
+            await updateDoc(docRef, { kpis: dataToSave.kpis, charts: dataToSave.charts });
+            alert('Dados atualizados com sucesso!');
+        }
+        closeModal(isNew ? 'addYearModal' : 'editDataModal');
+        if (isNew) {
+            initializeDashboard();
+        }
+    } catch (error) {
+        alert(`Erro ao salvar: ${error.message}`);
+    }
+}
+
+async function saveSettings(e) {
+    e.preventDefault();
+    const year = document.getElementById('year-select').value;
+    const userName = document.getElementById('settings-user-name').value;
     
-    // Salvar no Firebase
-    saveToFirebase(currentExcelData, 'edited_data');
+    const updatedTargets = {
+        mttr: parseFloat(document.getElementById('settings-mttr-target').value),
+        mtbf: parseFloat(document.getElementById('settings-mtbf-target').value),
+        disponibilidade: parseFloat(document.getElementById('settings-disponibilidade-target').value)
+    };
 
-    // Atualiza os gráficos e análises
-    loadDashboardData();
-
-    alert('Dados atualizados com sucesso!');
-    showView('dashboard');
-}
-
-function loadSettingsForm() {
-    // Implementação básica para configurações
-    console.log('Carregando formulário de configurações');
-}
-
-function saveSettings() {
-    console.log('Salvando configurações');
-    alert('Funcionalidade de configurações em desenvolvimento');
-}
-
-function exportReport() {
-    if (!dashboardData) {
-        alert('Nenhum dado disponível para exportar');
+    if (isTestMode) {
+        mockData[year].targets = updatedTargets;
+        currentUserData.name = userName;
+        startHeaderUpdates();
+        alert('(Modo Teste) Configurações salvas com sucesso!');
+        closeModal('settingsModal');
+        listenToYearData(year);
         return;
     }
     
     try {
-        const report = `
-RELATÓRIO DE MANUTENÇÃO
-========================
-
-KPIs Principais:
-- Manutenções Corretivas: ${dashboardData.kpis.corretivas}
-- Manutenções Preventivas: ${dashboardData.kpis.preventivas}
-- Preventivas Vencidas: ${dashboardData.kpis.preventivasVenc}
-- Manutenções Preditivas: ${dashboardData.kpis.preditivas}
-- Melhorias: ${dashboardData.kpis.melhorias}
-- Total de Equipamentos: ${dashboardData.kpis.equipamentos}
-- Total de O.S: ${dashboardData.kpis.osTotal}
-- Disponibilidade: ${Math.round(dashboardData.kpis.availability)}%
-- Custo Total: R$ ${dashboardData.kpis.custoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-
-Custos Mensais:
-${meses.map((mes, i) => `${mes}: R$ ${dashboardData.monthly_costs[i].toLocaleString('pt-BR', {minimumFractionDigits: 2})}`).join('\n')}
-
-Corretivas Mensais:
-${meses.map((mes, i) => `${mes}: ${dashboardData.monthly_correctives[i]}`).join('\n')}
-
-Gerado em: ${new Date().toLocaleString('pt-BR')}
-        `;
+        await updateDoc(doc(db, "maintenance_data", year), { targets: updatedTargets });
+        const userRef = doc(db, "users", auth.currentUser.uid);
+        await setDoc(userRef, { name: userName }, { merge: true });
         
-        const blob = new Blob([report], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 
-`relatorio_manutencao_${new Date().toISOString().split('T')[0]}.txt
-`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        currentUserData.name = userName;
+        startHeaderUpdates();
         
+        alert('Configurações salvas com sucesso!');
+        closeModal('settingsModal');
     } catch (error) {
-        console.error('Erro ao exportar relatório:', error);
-        alert('Erro ao exportar relatório: ' + error.message);
+        alert(`Erro ao salvar as configurações: ${error.message}`);
     }
+}
+
+async function showDatabaseModal() {
+    showModal('dbModal');
+    const container = document.getElementById('db-table-container');
+    container.innerHTML = '<div class="loader mx-auto"></div>';
+    let tableHTML = `<table class="db-table"><thead><tr><th>Ano</th><th>Corretivas</th><th>Custo Total</th></tr></thead><tbody>`;
+    
+    if (isTestMode) {
+        Object.keys(mockData).forEach(year => {
+            const kpis = mockData[year].kpis;
+            const totalCost = (kpis.custo_mensal || [0]).reduce((a,b)=>a+b,0);
+            const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a,b)=>a+b,0);
+            tableHTML += `<tr><td>${year}</td><td>${totalCorrectives}</td><td>R$ ${totalCost.toLocaleString('pt-BR')}</td></tr>`;
+        });
+        tableHTML += `</tbody></table>`;
+        container.innerHTML = tableHTML;
+        return;
+    }
+
+    try {
+        const querySnapshot = await getDocs(collection(db, "maintenance_data"));
+        querySnapshot.forEach(doc => {
+            const kpis = doc.data().kpis;
+            const totalCost = (kpis.custo_mensal || [0]).reduce((a,b)=>a+b,0);
+            const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a,b)=>a+b,0);
+            tableHTML += `<tr><td>${doc.id}</td><td>${totalCorrectives}</td><td>R$ ${totalCost.toLocaleString('pt-BR')}</td></tr>`;
+        });
+        tableHTML += `</tbody></table>`;
+        container.innerHTML = tableHTML;
+    } catch (error) {
+        container.innerHTML = `<p class="text-red-500">Erro ao carregar dados: ${error.message}</p>`;
+    }
+}
+
+async function showCompareModal() {
+    showModal('compareYearsModal');
+    const container = document.getElementById('compare-years-selection');
+    container.innerHTML = '<div class="loader mx-auto"></div>';
+    let years = [];
+
+    if (isTestMode) {
+        years = Object.keys(mockData).sort((a, b) => b - a);
+        container.innerHTML = years.map(year => `<div class="flex items-center"><input id="year-${year}" type="checkbox" value="${year}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><label for="year-${year}" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">${year}</label></div>`).join('');
+        return;
+    }
+
+    try {
+        const querySnapshot = await getDocs(collection(db, "maintenance_data"));
+        years = querySnapshot.docs.map(doc => doc.id).sort((a, b) => b - a);
+        container.innerHTML = years.map(year => `<div class="flex items-center"><input id="year-${year}" type="checkbox" value="${year}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"><label for="year-${year}" class="ml-2 block text-sm text-gray-900 dark:text-gray-200">${year}</label></div>`).join('');
+    } catch (error) {
+        container.innerHTML = '<p class="text-red-500">Erro ao carregar anos.</p>';
+    }
+}
+
+async function generateComparisonChart() {
+    const selectedYears = Array.from(document.querySelectorAll('#compare-years-selection input:checked')).map(el => el.value);
+    if (selectedYears.length < 2) { alert("Selecione pelo menos dois anos."); return; }
+
+    const chartData = { labels: ['Custo Total (R$)', 'Nº Corretivas', 'Disponibilidade (%)'], datasets: [] };
+    const colors = ['rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)', 'rgba(255, 99, 132, 0.7)'];
+    
+    if (isTestMode) {
+        selectedYears.forEach((year, index) => {
+            const data = mockData[year];
+            if(data) {
+               const kpis = data.kpis;
+               const totalCost = (kpis.custo_mensal || [0]).reduce((a, b) => a + b, 0);
+               const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a, b) => a + b, 0);
+               chartData.datasets.push({ label: year, data: [totalCost, totalCorrectives, kpis.disponibilidade], backgroundColor: colors[index % colors.length] });
+            }
+        });
+        updateChart('comparisonChart', chartData.labels, null, null, 'bar', {}, null, null, chartData);
+        return;
+    }
+
+    const docs = await Promise.all(selectedYears.map(year => getDoc(doc(db, "maintenance_data", year))));
+    docs.forEach((docSnap, index) => {
+        if (docSnap.exists()) {
+            const kpis = docSnap.data().kpis;
+            const totalCost = (kpis.custo_mensal || [0]).reduce((a, b) => a + b, 0);
+            const totalCorrectives = (kpis.corretivas_mensal || [0]).reduce((a, b) => a + b, 0);
+            chartData.datasets.push({ label: docSnap.id, data: [totalCost, totalCorrectives, kpis.disponibilidade], backgroundColor: colors[index % colors.length] });
+        }
+    });
+    updateChart('comparisonChart', chartData.labels, null, null, 'bar', {}, null, null, chartData);
+}
+
+function showEditModal() {
+    showModal('editDataModal');
+    const year = document.getElementById('year-select').value;
+    document.getElementById('edit-year-title').textContent = year;
+    const kpis = (currentYearData && currentYearData.kpis) ? currentYearData.kpis : {};
+    const charts = (currentYearData && currentYearData.charts) ? currentYearData.charts : { mttr: Array(3).fill(0), mtbf: Array(12).fill(0) };
+
+    document.getElementById('edit-preventivas').value = kpis.preventivas ?? 0;
+    document.getElementById('edit-preventivas-vencer').value = kpis.preventivasVencer ?? 0;
+    document.getElementById('edit-preditivas').value = kpis.preditivas ?? 0;
+    document.getElementById('edit-melhorias').value = kpis.melhorias ?? 0;
+    document.getElementById('edit-equipamentos').value = kpis.equipamentos ?? 0;
+    document.getElementById('edit-os-cadastradas').value = kpis.osCadastradas ?? 0;
+    document.getElementById('edit-disponibilidade').value = kpis.disponibilidade ?? 0;
+
+    const createMonthlyInputs = (containerId, values, prefix, type = "number", step = "1") => {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        let currentValues = Array.isArray(values) && values.length === 12 ? values : Array(12).fill(0);
+        currentValues = currentValues.map(v => (typeof v === 'number' && !isNaN(v)) ? v : 0);
+        if (!currentValues.length || currentValues.every(v => v === 0)) {
+            container.innerHTML = '<span style="color: #888; font-size: 0.9em;">Preencha os valores mensais de O.S Corretivas</span>';
+        }
+        currentValues.forEach((value, index) => {
+            container.innerHTML += `<input type="${type}" step="${step}" placeholder="${months[index]}" class="form-input form-input-small dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${prefix}-mensal" value="${value}" required>`;
+        });
+        container.style.minHeight = '48px';
+    };
+    createMonthlyInputs('edit-custos-mensais-container', kpis.custo_mensal, 'edit-custo', 'number', '0.01');
+    createMonthlyInputs('edit-corretivas-mensais-container', kpis.corretivas_mensal, 'edit-corretivas');
+
+    document.getElementById('edit-chart-mttr').value = Array.isArray(charts.mttr) ? charts.mttr.join(', ') : '0, 0, 0';
+    document.getElementById('edit-chart-mtbf').value = Array.isArray(charts.mtbf) ? charts.mtbf.join(', ') : '0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0';
+}
+
+function showSettingsModal() {
+    showModal('settingsModal');
+    const year = document.getElementById('year-select').value;
+    document.getElementById('settings-year-title').textContent = year;
+    document.getElementById('settings-user-name').value = currentUserData.name || '';
+    
+    const targets = currentYearData.targets || {};
+    document.getElementById('settings-mttr-target').value = targets.mttr || 0;
+    document.getElementById('settings-mtbf-target').value = targets.mtbf || 0;
+    document.getElementById('settings-disponibilidade-target').value = targets.disponibilidade || 95;
+}
+
+const centerTextPlugin = {
+    id: 'centerText',
+    afterDraw: (chart) => {
+        if (chart.canvas.id !== 'availabilityChart') return;
+        const ctx = chart.ctx;
+        const { width, height } = chart;
+        const value = chart.data.datasets[0].data[0];
+        const text = value.toFixed(1) + '%';
+        
+        ctx.restore();
+        const fontSize = (height / 120).toFixed(2);
+        const isDarkMode = document.documentElement.classList.contains('dark');
+        ctx.font = `bold ${fontSize}em Inter, sans-serif`;
+        ctx.fillStyle = isDarkMode ? '#e5e7eb' : '#1f2937';
+        ctx.textBaseline = 'middle';
+        
+        const textX = Math.round((width - ctx.measureText(text).width) / 2);
+        const textY = height / 2 + (height / 8);
+        
+        ctx.fillText(text, textX, textY);
+        ctx.save();
+    }
+};
+Chart.register(centerTextPlugin);
+
+function updateChart(chartId, labels, data, label, type = 'bar', scaleOptions = {}, target = null, targetType = null, fullData = null) {
+    const ctx = document.getElementById(chartId)?.getContext('2d');
+    if (!ctx) return;
+    if (charts[chartId]) { charts[chartId].destroy(); }
+
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    const textColor = isDarkMode ? '#e5e7eb' : '#6b7280';
+    const pointColor = isDarkMode ? '#a78bfa' : '#4bc0c0';
+    const barColor = isDarkMode ? '#818cf8' : '#4bc0c0';
+    const barFailColor = isDarkMode ? '#fca5a5' : '#ff9f40';
+
+    let chartConfig;
+
+    if (chartId === 'availabilityChart') {
+        const value = data[0];
+        let color = barFailColor;
+        if ((targetType === 'higher' && value >= target) || (targetType === 'lower' && value <= target)) {
+            color = barColor;
+        }
+        
+        chartConfig = {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{ data: data, backgroundColor: [color, isDarkMode ? '#374151' : '#e5e7eb'], borderWidth: 0, cutout: '70%' }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                circumference: 180, rotation: -90,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            }
+        };
+    } else {
+        chartConfig = {
+            type: type,
+            data: fullData ? fullData : {
+                labels: labels,
+                datasets: [{
+                    label: label, data: data,
+                    backgroundColor: (context) => {
+                        if (!target || !targetType || type==='line') return type === 'line' ? 'transparent' : barColor;
+                        const value = context.raw;
+                        if ((targetType === 'higher' && value >= target) || (targetType === 'lower' && value <= target)) return barColor;
+                        return barFailColor;
+                    },
+                    borderColor: pointColor,
+                    borderWidth: 2,
+                    pointBackgroundColor: pointColor,
+                    tension: 0.1,
+                    fill: type === 'line' ? false : true,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        ...scaleOptions,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    },
+                    x: {
+                        grid: { color: gridColor },
+                        ticks: { color: textColor }
+                    }
+                },
+                plugins: {
+                    annotation: { annotations: {} },
+                    legend: { 
+                        display: !!fullData,
+                        labels: { color: textColor }
+                    }
+                }
+            }
+        };
+        
+        if (target && targetType && !fullData && type !== 'doughnut') {
+            chartConfig.options.plugins.annotation.annotations.targetLine = {
+                type: 'line', yMin: target, yMax: target,
+                borderColor: isDarkMode ? '#f87171' : '#ff6384',
+                borderWidth: 2, borderDash: [6, 6],
+                label: { content: `Meta`, enabled: true, position: 'end', yAdjust: -10, backgroundColor: isDarkMode ? 'rgba(248, 113, 113, 0.7)' : 'rgba(255, 99, 132, 0.7)'}
+            };
+        }
+    }
+
+    charts[chartId] = new Chart(ctx, chartConfig);
 }
